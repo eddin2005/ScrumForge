@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest a new capability or improvement for ScrumForge
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What should ScrumForge be able to do? Describe it as a user story if you can ("As a …, I want … so that …").
+      placeholder: As a team member, I want to filter the board by assignee so that I can focus on my own cards.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How will we know it's done? One per line.
+      placeholder: |
+        Assignee filter chips above the board columns
+        Filter persists while dragging cards
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - frontend
+        - backend
+        - design
+        - qa
+        - docs
+        - infra
+    validations:
+      required: true
+  - type: input
+    id: points
+    attributes:
+      label: Story points (optional)
+      description: Estimate from the Fibonacci set — 1, 2, 3, 5, 8 or 13
+      placeholder: "5"

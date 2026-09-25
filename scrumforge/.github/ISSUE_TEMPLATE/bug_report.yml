@@ -1,0 +1,41 @@
+name: Bug report
+description: Report something broken in ScrumForge
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect to happen instead?
+      placeholder: The board didn't save my card move after a refresh.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the board
+        2. Drag SF-101 to Review
+        3. Refresh
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - frontend
+        - backend
+        - design
+        - qa
+        - docs
+        - infra
+    validations:
+      required: true
+  - type: input
+    id: points
+    attributes:
+      label: Story points (optional)
+      description: Estimate from the Fibonacci set — 1, 2, 3, 5, 8 or 13
+      placeholder: "3"
