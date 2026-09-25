@@ -1,0 +1,105 @@
+name: Label issues
+
+# Applies the team's label vocabulary to issues so the ScrumForge board
+# import (GitHub view → Import issues) can classify them cleanly:
+#   bug → bug item, enhancement → feature story, labels → tags,
+#   `points: N` label → story estimate.
+# Runs on every new issue, a nightly sweep for anything unlabeled,
+# and on demand from the Actions tab.
+
+on:
+  issues:
+    types: [opened]
+  schedule:
+    - cron: '0 2 * * *' # nightly sweep at 02:00 UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: label-issues
+  cancel-in-progress: false
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label issues with the team label set
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // ---- team label set (colors for first-run creation) ----
+            const TEAM_LABELS = {
+              'bug':           'db2777',
+              'enhancement':   '059669',
+              'documentation': '0891b2',
+              'backend':       '2563eb',
+              'frontend':      'd97706',
+              'design':        '7c3aed',
+              'qa':            '16a34a',
+              'infra':         '64748b'
+            };
+
+            // ---- deterministic classifier (keyword cues from title + body) ----
+            function classify(text) {
+              const t = String(text || '').toLowerCase();
+              /* every cue is boundary-matched (escaped) so 'ui' never hits 'suite', 'typo' never hits 'typography', 'as a' never hits 'has a' */
+              const esc = (c) => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const hit = (cue) => new RegExp('\\b' + esc(cue) + '\\b').test(t);
+              const has = (words) => words.some(hit);
+              const out = new Set();
+              if (has(['bug','error','crash','fails','failed','broken',"doesn't work",'does not work','exception','stack trace'])) out.add('bug');
+              if (has(['test','coverage','qa','regression suite'])) out.add('qa');
+              if (has(['readme','docs','documentation','guide','typo','tutorial'])) out.add('documentation');
+              if (has(['api','supabase','database','schema','rls','sql','endpoint','backend','auth server','storage'])) out.add('backend');
+              if (has(['frontend','ui','css','html','board view','render','button','layout','responsive','dark mode','light mode','chart'])) out.add('frontend');
+              if (has(['design','ux','usability','figma','color','typography','accessib','a11y','theme polish'])) out.add('design');
+              if (has(['deploy','ci','cd','github actions','pipeline','vercel','pages','domain','workflow'])) out.add('infra');
+              if (has(['add','support for','allow','as a','i want','improvement','enhancement','feature request','new feature'])) out.add('enhancement');
+              return Array.from(out).slice(0, 3); // at most 3 labels per issue
+            }
+
+            // ---- make sure all team labels exist (auto-creates missing ones) ----
+            async function ensureLabels() {
+              const existing = await github.paginate(github.rest.issues.listLabelsForRepo, { per_page: 100 });
+              const have = new Set(existing.map(l => l.name));
+              for (const [name, color] of Object.entries(TEAM_LABELS)) {
+                if (!have.has(name)) {
+                  await github.rest.issues.createLabel({ owner: context.repo.owner, repo: context.repo.repo, name, color });
+                }
+              }
+            }
+
+            // ---- pick the target issues ----
+            let issues;
+            if (context.eventName === 'issues') {
+              const i = context.payload.issue;
+              issues = [i];
+            } else { // nightly sweep + manual run: every open issue with no labels
+              const all = await github.paginate(github.rest.issues.listForRepo, { state: 'open', per_page: 100 });
+              issues = all.filter(i => !i.pull_request && (i.labels || []).length === 0);
+            }
+            issues = issues.filter(i => !i.pull_request);
+            if (issues.length === 0) { core.info('Nothing to label.'); return; }
+
+            await ensureLabels();
+
+            let labeled = 0;
+            for (const i of issues) {
+              const current = (i.labels || []).map(l => (typeof l === 'string' ? l : l.name));
+              if (current.length > 0 && context.eventName !== 'issues') continue; // sweep never overwrites
+              const text = i.title + '\n' + (i.body || '');
+              const chosen = classify(text).filter(l => !current.includes(l));
+              if (chosen.length === 0) continue;
+              await github.rest.issues.setLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: i.number,
+                labels: Array.from(new Set(current.concat(chosen)))
+              });
+              labeled++;
+              core.info('#' + i.number + ' → ' + chosen.join(', '));
+            }
+            core.info('Labeled ' + labeled + ' issue(s).');
