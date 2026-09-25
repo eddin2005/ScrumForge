@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="color-scheme" content="dark"/>
+<title>ScrumForge — Scrum Delivery Platform</title>
+<style>
+:root{
+  --bg:#050a13; --pan:rgba(9,17,31,.88); --pan2:rgba(13,24,42,.94);
+  --line:rgba(56,189,248,.16); --line2:rgba(56,189,248,.34);
+  --cy:#22d3ee; --gr:#34d399; --am:#fbbf24; --rd:#f87171; --vi:#a78bfa; --bl:#60a5fa;
+  --tx:#dfe9ff; --dim:#7e93b6; --mono:ui-monospace,'Cascadia Mono',Consolas,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:radial-gradient(1100px 700px at 80% -10%,rgba(34,211,238,.07),transparent 60%),var(--bg);
+  color:var(--tx);font:13px/1.5 'Segoe UI',Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:rgba(56,189,248,.22);border-radius:5px}
+::-webkit-scrollbar-track{background:transparent}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,select,textarea{font:inherit;color:var(--tx);background:#0b1728;border:1px solid var(--line);
+  border-radius:8px;padding:7px 10px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--line2);box-shadow:0 0 0 3px rgba(34,211,238,.08)}
+canvas.chart{width:100%;display:block}
+h3.sec{font-size:10px;letter-spacing:1.8px;color:var(--dim);text-transform:uppercase;margin:18px 0 9px;
+  display:flex;align-items:center;gap:8px}
+h3.sec::after{content:'';flex:1;height:1px;background:var(--line)}
+h3.sec:first-child{margin-top:2px}
+
+/* ---------- layout ---------- */
+#app{display:flex;min-height:100vh}
+#side{width:216px;position:fixed;top:0;bottom:0;left:0;background:var(--pan);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;z-index:40;backdrop-filter:blur(10px)}
+#logo{padding:16px 16px 13px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center}
+#logo .mark{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,rgba(34,211,238,.25),rgba(167,139,250,.25));
+  border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:17px}
+#logo b{font-size:15px;letter-spacing:1px;display:block}
+#logo b i{color:var(--cy);font-style:normal}
+#logo small{font-size:9px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;display:block}
+#nav{flex:1;padding:10px 8px;overflow-y:auto}
+.navitem{width:100%;display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;color:var(--dim);
+  font-size:12.5px;margin-bottom:2px;border:1px solid transparent;text-align:left}
+.navitem:hover{color:var(--tx);background:rgba(34,211,238,.06)}
+.navitem.on{color:var(--cy);background:rgba(34,211,238,.1);border-color:rgba(34,211,238,.25)}
+.navitem .ic{width:20px;text-align:center;font-size:14px}
+#sideFoot{padding:12px;border-top:1px solid var(--line)}
+#sprintChip{background:var(--pan2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+#sprintChip b{color:var(--cy);font-size:12px;display:block}
+#sprintChip .row{display:flex;justify-content:space-between;margin-top:3px}
+#btnReset{width:100%;margin-top:9px;padding:7px;border:1px solid rgba(248,113,113,.35);border-radius:8px;
+  color:var(--rd);font-size:11px;background:rgba(248,113,113,.06)}
+#btnReset:hover{background:rgba(248,113,113,.14)}
+
+#main{flex:1;margin-left:216px;padding:18px 22px 60px;min-width:0}
+#vhead{display:flex;align-items:flex-end;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+#vTitle{font-size:21px;font-weight:700;letter-spacing:.4px}
+#vSub{color:var(--dim);font-size:12px;margin-top:2px}
+#vActs{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.abtn{padding:7px 13px;border:1px solid var(--line);border-radius:9px;background:var(--pan2);color:var(--tx);
+  font-size:12px;display:inline-flex;align-items:center;gap:7px}
+.abtn:hover{border-color:var(--line2);background:rgba(34,211,238,.08)}
+.abtn.pri{border-color:rgba(34,211,238,.5);color:var(--cy);background:rgba(34,211,238,.1)}
+.abtn.dng{border-color:rgba(248,113,113,.4);color:var(--rd)}
+.abtn:disabled{opacity:.4;cursor:not-allowed}
+.pane{display:none;animation:pin .25s}
+.pane.on{display:block}
+@keyframes pin{from{opacity:0;transform:translateY(6px)}}
+
+/* ---------- cards & kpis ---------- */
+.card{background:var(--pan);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:12px}
+.card .ct{font-size:10px;color:var(--dim);letter-spacing:1.4px;text-transform:uppercase;margin-bottom:9px;
+  display:flex;justify-content:space-between;align-items:center;gap:10px}
+.card .ct b{color:var(--tx);font-family:var(--mono);font-size:11px;font-weight:600}
+.kgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi{background:var(--pan);border:1px solid var(--line);border-radius:12px;padding:11px 13px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--cy);opacity:.75}
+.kpi.g::before{background:var(--gr)}.kpi.a::before{background:var(--am)}.kpi.r::before{background:var(--rd)}.kpi.v::before{background:var(--vi)}.kpi.b::before{background:var(--bl)}
+.kpi .v{font-family:var(--mono);font-size:22px;font-weight:600}
+.kpi .v small{font-size:10px;color:var(--dim)}
+.kpi .l{font-size:9.5px;color:var(--dim);letter-spacing:.8px;text-transform:uppercase;margin-top:2px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:1100px){.g2,.g3{grid-template-columns:1fr}}
+
+/* ---------- tags / chips / avatars ---------- */
+.tag{display:inline-block;padding:2px 8px;border-radius:9px;font-size:9.5px;font-family:var(--mono);letter-spacing:.3px}
+.tag.c{background:rgba(34,211,238,.14);color:var(--cy)}
+.tag.g{background:rgba(52,211,153,.14);color:var(--gr)}
+.tag.a{background:rgba(251,191,36,.14);color:var(--am)}
+.tag.r{background:rgba(248,113,113,.14);color:var(--rd)}
+.tag.v{background:rgba(167,139,250,.14);color:var(--vi)}
+.tag.b{background:rgba(96,165,250,.14);color:var(--bl)}
+.tag.d{background:rgba(126,147,182,.14);color:var(--dim)}
+.ava{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:700;color:#04121c;font-family:var(--mono);flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+.dotp{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+
+/* ---------- tables ---------- */
+table.tb{width:100%;border-collapse:collapse;font-size:11.5px}
+.tb th{text-align:left;color:var(--dim);font-weight:500;font-size:9px;letter-spacing:1.1px;text-transform:uppercase;
+  padding:5px 6px;border-bottom:1px solid var(--line)}
+.tb td{padding:7px 6px;border-bottom:1px solid rgba(56,189,248,.07);font-family:var(--mono);font-size:10.5px;vertical-align:middle}
+.tb td.t{font-family:inherit;font-size:12px}
+.tb tr:hover td{background:rgba(34,211,238,.04)}
+.tb .rt{text-align:right}
+
+/* ---------- backlog ---------- */
+#bkTools{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+#bkTools input[type=search]{flex:1;min-width:180px}
+#bkTools select{max-width:170px}
+.epic{margin-bottom:12px}
+.epicHead{display:flex;align-items:center;gap:9px;padding:9px 12px;background:var(--pan2);
+  border:1px solid var(--line);border-radius:10px 10px 0 0;font-size:12px;flex-wrap:wrap}
+.epicHead b{letter-spacing:.4px}
+.epicHead .meta{color:var(--dim);font-family:var(--mono);font-size:10px}
+.epicHead .bar{flex:1;height:4px;background:#12233c;border-radius:2px;overflow:hidden;min-width:90px;max-width:180px}
+.epicHead .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--cy),var(--gr))}
+.storyRow{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--pan);
+  border:1px solid var(--line);border-top:none}
+.storyRow:last-child{border-radius:0 0 10px 10px}
+.storyRow:hover{background:rgba(34,211,238,.05)}
+.storyRow .sid{font-family:var(--mono);font-size:10px;color:var(--dim);width:58px;flex:none}
+.storyRow .st{flex:1;min-width:0;font-size:12.5px;cursor:pointer}
+.storyRow .st:hover{color:var(--cy)}
+.storyRow .pts{font-family:var(--mono);font-size:11px;color:var(--vi);background:rgba(167,139,250,.12);
+  padding:2px 8px;border-radius:9px;flex:none}
+.storyRow .mv{display:flex;gap:2px}
+.mbtn{padding:3px 7px;border:1px solid var(--line);border-radius:6px;color:var(--dim);font-size:10px}
+.mbtn:hover{color:var(--cy);border-color:var(--line2)}
+
+/* ---------- board ---------- */
+#board{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:start}
+@media(max-width:1250px){#board{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){#board{grid-template-columns:1fr 1fr}}
+.bcol{background:var(--pan);border:1px solid var(--line);border-radius:12px;min-height:340px;display:flex;flex-direction:column;transition:border-color .15s, box-shadow .15s}
+.bcol.over{border-color:var(--cy);box-shadow:0 0 0 3px rgba(34,211,238,.12)}
+.bcolH{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+.bcolH .nm{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;font-weight:600}
+.bcolH .cnt{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--dim)}
+.bcolH .wip{font-family:var(--mono);font-size:9px;padding:1px 7px;border-radius:8px;background:rgba(126,147,182,.15);color:var(--dim)}
+.bcolH .wip.hot{background:rgba(248,113,113,.18);color:var(--rd)}
+.bcolBody{padding:9px;display:flex;flex-direction:column;gap:8px;flex:1;min-height:120px}
+.bcard{background:var(--pan2);border:1px solid var(--line);border-radius:10px;padding:9px 10px;cursor:grab;transition:transform .12s,border-color .12s}
+.bcard:hover{border-color:var(--line2);transform:translateY(-1px)}
+.bcard.dragging{opacity:.45;cursor:grabbing}
+.bcard .bid{font-family:var(--mono);font-size:9px;color:var(--dim);display:flex;justify-content:space-between;margin-bottom:4px}
+.bcard .bt{font-size:12px;line-height:1.35;margin-bottom:8px;cursor:pointer}
+.bcard .bt:hover{color:var(--cy)}
+.bcard .bmeta{display:flex;align-items:center;gap:7px}
+.bcard .pts{font-family:var(--mono);font-size:10px;color:var(--vi);background:rgba(167,139,250,.12);padding:1px 7px;border-radius:8px}
+.bcard .ep{font-family:var(--mono);font-size:9px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bcard .ava{margin-left:auto;width:20px;height:20px;font-size:8px}
+.bcolAdd{padding:8px;color:var(--dim);font-size:11px;border-top:1px dashed var(--line);text-align:center}
+.bcolAdd:hover{color:var(--cy)}
+
+/* ---------- sprints ---------- */
+.spGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.spCard{background:var(--pan);border:1px solid var(--line);border-radius:12px;padding:13px 15px;position:relative;overflow:hidden}
+.spCard.active{border-color:rgba(52,211,153,.5);box-shadow:0 0 24px rgba(52,211,153,.07)}
+.spCard.planned{border-style:dashed}
+.spTop{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px}
+.spName{font-weight:700;font-size:14px}
+.spGoal{color:var(--dim);font-size:11.5px;margin-bottom:10px;min-height:32px}
+.spMeta{display:flex;gap:14px;font-family:var(--mono);font-size:10px;color:var(--dim);margin-bottom:9px;flex-wrap:wrap}
+.pbar{height:5px;background:#12233c;border-radius:3px;overflow:hidden;margin-top:4px}
+.pbar i{display:block;height:100%;background:linear-gradient(90deg,var(--cy),var(--gr));transition:width .5s}
+.spFoot{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+.spFoot .abtn{padding:5px 10px;font-size:11px}
+
+/* ---------- team ---------- */
+.tGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.tCard{background:var(--pan);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.tTop{display:flex;gap:11px;align-items:center}
+.tAva{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:var(--mono);font-size:13px;color:#04121c;flex:none}
+.tName{font-weight:700;font-size:13.5px}
+.tRole{font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
+.wl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chk{display:flex;gap:8px;align-items:flex-start;padding:5px 0;font-size:12px}
+.chk .bx{width:15px;height:15px;border-radius:4px;border:1px solid var(--line2);flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--gr)}
+.chk.done .bx{background:rgba(52,211,153,.15);border-color:var(--gr)}
+
+/* ---------- ceremonies ---------- */
+.feed{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto}
+.fitem{display:flex;gap:9px;align-items:flex-start;background:var(--pan2);border:1px solid var(--line);border-radius:9px;padding:8px 10px}
+.fitem .t{font-family:var(--mono);font-size:9px;color:var(--dim);white-space:nowrap;margin-top:2px;min-width:86px}
+.fitem .m{font-size:12px;line-height:1.4}
+.retroG{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:1000px){.retroG{grid-template-columns:1fr}}
+.retroCol{background:var(--pan2);border:1px solid var(--line);border-radius:10px;padding:11px}
+.retroCol h4{font-size:10px;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:8px}
+.retroCol ul{list-style:none}
+.retroCol li{font-size:12px;padding:4px 0 4px 16px;position:relative;border-bottom:1px solid rgba(56,189,248,.06)}
+.retroCol li::before{content:'\25B8';position:absolute;left:2px;color:var(--dim)}
+.rw h4{color:var(--gr)} .ri h4{color:var(--am)} .ra h4{color:var(--cy)}
+
+/* ---------- timeline (about) ---------- */
+.tl{position:relative;padding-left:26px}
+.tl::before{content:'';position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:linear-gradient(180deg,var(--cy),var(--vi))}
+.tlItem{position:relative;padding:0 0 16px 8px}
+.tlItem::before{content:'';position:absolute;left:-24px;top:4px;width:12px;height:12px;border-radius:50%;
+  background:var(--bg);border:2px solid var(--cy);box-shadow:0 0 8px rgba(34,211,238,.5)}
+.tlItem.past::before{background:var(--cy)}
+.tlItem .tlD{font-family:var(--mono);font-size:9.5px;color:var(--dim)}
+.tlItem .tlT{font-weight:700;font-size:13px;margin:1px 0}
+.tlItem .tlM{color:var(--dim);font-size:11.5px}
+
+/* ---------- modal ---------- */
+#modalRoot{position:fixed;inset:0;z-index:80;display:none;align-items:flex-start;justify-content:center;
+  background:rgba(3,8,16,.72);backdrop-filter:blur(4px);overflow-y:auto;padding:60px 16px}
+#modalRoot.on{display:flex}
+.modal{background:#0a1526;border:1px solid var(--line2);border-radius:14px;width:560px;max-width:100%;
+  box-shadow:0 20px 70px rgba(0,0,0,.6);animation:mup .22s}
+@keyframes mup{from{opacity:0;transform:translateY(14px)}}
+.mHead{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.mHead b{font-size:15px}
+.mHead .x{margin-left:auto;color:var(--dim);font-size:16px;padding:2px 8px;border-radius:7px}
+.mHead .x:hover{color:var(--rd);background:rgba(248,113,113,.1)}
+.mBody{padding:16px 18px;max-height:65vh;overflow-y:auto}
+.mFoot{padding:13px 18px;border-top:1px solid var(--line);display:flex;gap:9px;justify-content:flex-end}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.frow.one{grid-template-columns:1fr}
+.fld label{display:block;font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
+.fld input,.fld select,.fld textarea{width:100%}
+.fld textarea{min-height:74px;resize:vertical;font-family:var(--mono);font-size:11.5px}
+
+/* ---------- print / PDF sprint report ---------- */
+#printRoot{display:none}
+@media print{
+  @page{size:A4;margin:12mm}
+  body{background:#fff!important;color:#111}
+  #app,#toasts,#loader,#modalRoot{display:none!important}
+  #printRoot{display:block;font:12px/1.55 Georgia,'Times New Roman',serif;color:#111}
+  #printRoot h1{font-size:20px;margin:0 0 2px}
+  .rp-head{display:flex;gap:12px;align-items:center;border-bottom:3px solid #111;padding-bottom:8px;margin-bottom:14px}
+  .rp-brand{font:700 13px/1 Verdana,sans-serif;letter-spacing:2px;border:2px solid #111;padding:6px 8px;border-radius:6px;white-space:nowrap}
+  .rp-sub{color:#444;font-size:11px}
+  .rp-card{margin-bottom:16px;page-break-inside:avoid}
+  .rp-card h2{font-size:13px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #999;padding-bottom:3px;margin:0 0 8px;font-family:Verdana,sans-serif}
+  .rp-card h3{font-size:11px;margin:10px 0 4px;font-family:Verdana,sans-serif}
+  table.rp-tb{width:100%;border-collapse:collapse;font-size:10.5px;font-family:Verdana,sans-serif}
+  table.rp-tb th{background:#eee;border:1px solid #999;padding:4px 6px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.5px}
+  table.rp-tb td{border:1px solid #aaa;padding:4px 6px}
+  table.rp-kv{width:100%;border-collapse:collapse;font-size:11px}
+  table.rp-kv th{width:150px;text-align:left;padding:3px 6px;background:#f2f2f2;border:1px solid #aaa;vertical-align:top;font-size:10px;text-transform:uppercase}
+  table.rp-kv td{border:1px solid #aaa;padding:3px 6px}
+  .rp-goal{margin:0 0 6px}
+  .rp-img{width:100%;max-width:720px;border:1px solid #bbb;border-radius:6px;margin-top:4px}
+  .rp-ul{margin:0;padding-left:18px}
+  .rp-ul li{margin:2px 0}
+  .mut{color:#666;font-style:italic}
+  .rp-foot{margin-top:18px;border-top:1px solid #999;padding-top:6px;color:#555;font-size:10px}
+}
+
+/* ---------- toasts ---------- */
+#toasts{position:fixed;top:16px;right:16px;z-index:90;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.toast{background:rgba(10,20,38,.96);border:1px solid var(--line2);border-left:3px solid var(--cy);border-radius:9px;
+  padding:9px 15px;font-size:12px;animation:tin .25s;box-shadow:0 8px 30px rgba(0,0,0,.5);max-width:380px}
+.toast.g{border-left-color:var(--gr)} .toast.a{border-left-color:var(--am)} .toast.r{border-left-color:var(--rd)}
+@keyframes tin{from{opacity:0;transform:translateX(20px)}}
+
+/* ---------- loader ---------- */
+#loader{position:fixed;inset:0;background:#040910;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;transition:opacity .6s}
+#loader.done{opacity:0;pointer-events:none}
+#loader .lg{font-size:24px;letter-spacing:4px;font-weight:700}
+#loader .lg b{color:var(--cy)}
+#loader .sb{font-size:10px;color:var(--dim);letter-spacing:3px;text-transform:uppercase}
+#ldBarW{width:320px;height:3px;background:#12233c;border-radius:2px;overflow:hidden}
+#ldBar{height:100%;width:0;background:linear-gradient(90deg,var(--cy),var(--vi));transition:width .3s}
+#ldLog{width:360px;height:92px;overflow:hidden;font-family:var(--mono);font-size:10px;color:#5f7a9d;line-height:1.6}
+#ldLog .ok{color:var(--gr)}
+
+@media(max-width:900px){
+  #side{width:58px}
+  #side .lbl,#logo div:last-child,#sprintChip,#btnReset{display:none}
+  #main{margin-left:58px;padding:14px}
+  #logo{justify-content:center;padding:14px 8px}
+  .navitem{justify-content:center}
+}
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="lg">SCRUM<b>FORGE</b></div>
+  <div class="sb">Scrum Delivery Platform · v1.1</div>
+  <div id="ldBarW"><div id="ldBar"></div></div>
+  <div id="ldLog"></div>
+</div>
+
+<div id="app">
+  <aside id="side">
+    <div id="logo">
+      <div class="mark">⚒</div>
+      <div><b>SCRUM<i>FORGE</i></b><small>Delivery Platform</small></div>
+    </div>
+    <nav id="nav"></nav>
+    <div id="sideFoot">
+      <div id="sprintChip"></div>
+      <button id="btnReset" title="Restore the seeded demo dataset">↺ Reset demo data</button>
+    </div>
+  </aside>
+
+  <main id="main">
+    <div id="vhead">
+      <div><div id="vTitle"></div><div id="vSub"></div></div>
+      <div id="vActs"></div>
+    </div>
+
+    <section class="pane on" id="v-dash"></section>
+    <section class="pane" id="v-backlog"></section>
+    <section class="pane" id="v-board"></section>
+    <section class="pane" id="v-sprints"></section>
+    <section class="pane" id="v-reports"></section>
+    <section class="pane" id="v-team"></section>
+    <section class="pane" id="v-cer"></section>
+    <section class="pane" id="v-about"></section>
+  </main>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toasts"></div>
+<div id="printRoot"></div>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   SEED DATA — ScrumForge manages its own development (dogfooding):
+   6 sprints of history built this app. pinDay freezes "today" so the
+   demo looks identical every time it is opened.
+===================================================================== */
+
+const TEAM_SEED = [
+  {id:'U1', name:'Awa Nkeng',      role:'Product Owner',      initials:'AN', color:'#34d399', capacity:30, skills:['Vision','Roadmap','Stakeholders','Prioritisation']},
+  {id:'U2', name:'Nadege Tchoumi', role:'Scrum Master',       initials:'NT', color:'#22d3ee', capacity:25, skills:['Facilitation','Impediments','Metrics','Coaching']},
+  {id:'U3', name:'Junior Mbarga',  role:'Developer',          initials:'JM', color:'#60a5fa', capacity:34, skills:['JS','TypeScript','State','Testing']},
+  {id:'U4', name:'Sara Fotso',     role:'Developer',          initials:'SF', color:'#a78bfa', capacity:34, skills:['UI/UX','CSS','A11y','Design system']},
+  {id:'U5', name:'Yann Kouadio',   role:'Developer',          initials:'YK', color:'#fbbf24', capacity:30, skills:['Node','APIs','PostgreSQL','CI/CD']},
+  {id:'U6', name:'Buffy (AI)',     role:'AI Pair Programmer', initials:'AI', color:'#f87171', capacity:40, skills:['Codegen','Refactors','Tests','Docs','24/7']}
+];
+
+const EPICS = [
+  {id:'E1', name:'Board & Workflow', color:'#22d3ee', desc:'Kanban board, drag & drop, WIP limits'},
+  {id:'E2', name:'Sprint Engine',    color:'#a78bfa', desc:'Planning, lifecycle, spillover handling'},
+  {id:'E3', name:'Analytics',        color:'#34d399', desc:'Burndown, velocity, forecasting'},
+  {id:'E4', name:'Team & Ceremonies',color:'#fbbf24', desc:'Members, capacity, Scrum events'},
+  {id:'E5', name:'Platform',         color:'#f87171', desc:'Persistence, a11y, deployment'}
+];
+
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+
+function seedData(){
+  const S=[];
+  const add=o=>S.push(Object.assign({
+    points:3, epic:'E1', assignee:'U3', status:'done', sprint:null,
+    criteria:'Acceptance criteria met\nCode reviewed\nTests pass\nDemoed at Sprint Review',
+    priority:'S'
+  },o));
+
+  /* Sprint 1 — Foundations */
+  add({id:'SF-101', title:'As a team I want a product vision & roadmap so work has direction', points:2, epic:'E5', assignee:'U1', sprint:1,
+       criteria:'Vision statement approved\nRoadmap drafted for 3 releases'});
+  add({id:'SF-102', title:'App skeleton: single-file shell, dark theme, view routing', points:3, epic:'E5', assignee:'U4', sprint:1,
+       criteria:'App renders in under 100ms\nTheme tokens defined\nAll 8 views reachable'});
+  add({id:'SF-103', title:'Local-first persistence layer with re-seedable demo data', points:5, epic:'E5', assignee:'U6', sprint:1,
+       criteria:'State survives reload\nReset restores seed without duplicates'});
+  add({id:'SF-104', title:'User story model: points, epic, assignee, acceptance criteria', points:3, epic:'E2', assignee:'U3', sprint:1,
+       criteria:'Story CRUD works\nPoints restricted to Fibonacci set'});
+  add({id:'SF-105', title:'Team roster with Scrum roles & capacities', points:2, epic:'E4', assignee:'U2', sprint:1,
+       criteria:'PO / SM / Dev roles represented\nCapacity editable per member'});
+
+  /* Sprint 2 — Product backlog */
+  add({id:'SF-201', title:'Product backlog view grouped by epic with progress bars', points:5, epic:'E1', assignee:'U4', sprint:2,
+       criteria:'Stories grouped under 5 epics\nPer-epic % done visible'});
+  add({id:'SF-202', title:'Create / edit / delete stories via modal', points:5, epic:'E2', assignee:'U3', sprint:2,
+       criteria:'Validation on title & points\nDeleting removes story from sprints too'});
+  add({id:'SF-203', title:'Backlog search + epic filter', points:3, epic:'E1', assignee:'U6', sprint:2,
+       criteria:'Filters combine\nEmpty state shown when nothing matches'});
+  add({id:'SF-204', title:'MoSCoW priority tags on every story', points:2, epic:'E2', assignee:'U2', sprint:2,
+       criteria:'M/S/C/W badge rendered\nEditable in story modal'});
+  add({id:'SF-205', title:'Reorder stories inside an epic (promote / demote)', points:3, epic:'E1', assignee:'U3', sprint:2,
+       criteria:'Order persists after reload'});
+
+  /* Sprint 3 — Sprint engine */
+  add({id:'SF-301', title:'Sprint planning: pick stories until capacity is reached', points:8, epic:'E2', assignee:'U1', sprint:3,
+       criteria:'Warning when over capacity\nSprint goal required to start'});
+  add({id:'SF-302', title:'Start & close sprint lifecycle with spillover to backlog', points:5, epic:'E2', assignee:'U5', sprint:3,
+       criteria:'Closing moves unfinished stories to backlog\nStatus transitions enforced'});
+  add({id:'SF-303', title:'Kanban board: 5 columns, drag & drop cards', points:8, epic:'E1', assignee:'U4', sprint:3,
+       criteria:'Cards draggable across all columns\nColumn counts update live'});
+  add({id:'SF-304', title:'WIP limit badge on In Progress column', points:2, epic:'E1', assignee:'U2', sprint:3,
+       criteria:'Badge turns red over limit\nLimit constant documented'});
+
+  /* Sprint 4 — Analytics */
+  add({id:'SF-401', title:'Sprint burndown chart: ideal vs remaining (canvas)', points:8, epic:'E3', assignee:'U6', sprint:4,
+       criteria:'Ideal line dashed, actual solid\nToday marker visible'});
+  add({id:'SF-402', title:'Velocity chart across completed sprints', points:5, epic:'E3', assignee:'U3', sprint:4,
+       criteria:'Committed vs completed bars\nAverage velocity line shown'});
+  add({id:'SF-403', title:'Throughput & lead-time sparklines on dashboard', points:3, epic:'E3', assignee:'U4', sprint:4,
+       criteria:'Data derives from board state\nRendered per completed sprint'});
+  add({id:'SF-404', title:'Story-level effort burn: partial credit in Review', points:3, epic:'E3', assignee:'U5', sprint:4,
+       criteria:'Review counts as 50% burnt\nDocumented in tooltip'});
+
+  /* Sprint 5 — Ceremonies & team ops */
+  add({id:'SF-501', title:'Ceremony log: planning, dailies, reviews, retros', points:5, epic:'E4', assignee:'U2', sprint:5,
+       criteria:'All 4 Scrum events captured\nNotes readable per sprint'});
+  add({id:'SF-502', title:'Retrospective board: went well / improve / actions', points:5, epic:'E4', assignee:'U1', sprint:5,
+       criteria:'3 columns rendered\nActions carry into next sprint notes'});
+  add({id:'SF-503', title:'Team workload view with capacity bars', points:3, epic:'E4', assignee:'U5', sprint:5,
+       criteria:'Assigned pts vs capacity per member\nOver-capacity highlighted amber'});
+  add({id:'SF-504', title:'Definition of Done checklist surfaced on stories', points:2, epic:'E2', assignee:'U6', sprint:5,
+       criteria:'DoD shown in story modal\nDone requires all criteria'});
+
+  /* Sprint 6 — Hardening & launch (ACTIVE) */
+  add({id:'SF-601', title:'Dashboard KPI wall: velocity, days left, capacity, WIP', points:5, epic:'E3', assignee:'U4', sprint:6, status:'done',
+       criteria:'6 KPIs live-updating\nNumbers match reports view'});
+  add({id:'SF-602', title:'Keyboard shortcuts & focus states (a11y pass)', points:3, epic:'E5', assignee:'U3', sprint:6, status:'review',
+       criteria:'Tab order logical\nFocus visible on all controls'});
+  add({id:'SF-603', title:'Deploy to static hosting + presentation kit', points:2, epic:'E5', assignee:'U6', sprint:6, status:'todo',
+       criteria:'Public URL works\nDemo script committed'});
+  add({id:'SF-604', title:'Sprint Review & Retro #6 notes', points:1, epic:'E4', assignee:'U2', sprint:6, status:'backlog',
+       criteria:'Notes recorded before demo'});
+  add({id:'SF-605', title:'Empty-state polish & toast feedback everywhere', points:2, epic:'E1', assignee:'U4', sprint:6, status:'backlog',
+       criteria:'No silent failures\nToasts on every mutation'});
+
+  return {
+    version:1,
+    pinDay: todayISO(),
+    stories:S,
+    sprints:[
+      {n:1, name:'Sprint 1 · Foundations',     goal:'Stand up the app skeleton and core models',              start:'2026-08-10', end:'2026-08-14', status:'done',    committed:15, completed:15},
+      {n:2, name:'Sprint 2 · Product Backlog', goal:'A prioritised, searchable backlog teams actually use',   start:'2026-08-17', end:'2026-08-21', status:'done',    committed:18, completed:18},
+      {n:3, name:'Sprint 3 · Sprint Engine',   goal:'Plan, start and close sprints; board goes drag & drop',  start:'2026-08-24', end:'2026-08-28', status:'done',    committed:23, completed:20},
+      {n:4, name:'Sprint 4 · Analytics',       goal:'Charts that make performance undeniable',                start:'2026-08-31', end:'2026-09-04', status:'done',    committed:19, completed:19},
+      {n:5, name:'Sprint 5 · Ceremonies',      goal:'The full Scrum loop inside the tool itself',             start:'2026-09-07', end:'2026-09-11', status:'done',    committed:15, completed:15},
+      {n:6, name:'Sprint 6 · Ship It',         goal:'Harden, polish and deploy before the demo',              start:'2026-09-21', end:'2026-09-25', status:'active',  committed:13, completed:0},
+      {n:7, name:'Sprint 7 · Scale',           goal:'Multi-project workspaces & API integrations',            start:'2026-09-28', end:'2026-10-02', status:'planned', committed:0,  completed:0}
+    ],
+    ceremonies:[
+      {sprint:1, type:'Planning', day:'Mon 10 Aug', note:'Capacity 158 pts, committed 15. Team agreed on the single-file constraint for zero-dependency deploys.'},
+      {sprint:1, type:'Review',   day:'Fri 14 Aug', note:'Demoed app shell + persistence. PO accepted all 15 pts.'},
+      {sprint:1, type:'Retro',    day:'Fri 14 Aug', note:'Went well: fast kickoff. Improve: estimates ran optimistic — adopt Fibonacci-only sizing.'},
+      {sprint:2, type:'Daily',    day:'Wed 19 Aug', note:'Impediment: filter state not persisting — AI pair programmer fixed it same day.'},
+      {sprint:2, type:'Review',   day:'Fri 21 Aug', note:'Backlog UX approved; 18/18 pts accepted.'},
+      {sprint:3, type:'Retro',    day:'Fri 28 Aug', note:'3 pts spilled (drag & drop edge cases). Action: spike HTML5 DnD quirks early — done in Sprint 4.'},
+      {sprint:4, type:'Review',   day:'Fri 04 Sep', note:'Burndown + velocity accepted. Stakeholder asked for CSV export — added to Sprint 7 backlog.'},
+      {sprint:5, type:'Retro',    day:'Fri 11 Sep', note:'Went well: zero spillover. Improve: a11y was late — a11y pass pulled into Sprint 6 (SF-602).'},
+      {sprint:6, type:'Planning', day:'Mon 21 Sep', note:'Committed 13 pts. Goal: harden, polish, deploy before the presentation. AI pair programmer owns the deployment story.'},
+      {sprint:6, type:'Daily',    day:'Wed 23 Sep', note:'SF-601 done, SF-602 in review. No impediments. Burn on track.'}
+    ],
+    retros:{
+      well:   ['AI pair programmer unblocked the team 24/7','Velocity grew 15 → 19 pts with the same team','Single-file constraint kept deploys trivial','Retros produced real, tracked actions'],
+      improve:['Sprint 3 overcommitted by 3 pts','A11y came late — bring checks forward','Charts need hover tooltips on small screens'],
+      actions:['Adopt capacity-based commitment (done)','Spike risky tech early (done)','Add a11y pass to Definition of Done (ongoing)']
+    }
+  };
+}
+
+/* =====================================================================
+   STATE
+===================================================================== */
+
+const LS_KEY='scrumforge.v1';
+let DB=null;
+
+function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(DB)); }catch(e){} }
+function load(){
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    if(raw){ DB=JSON.parse(raw); return; }
+  }catch(e){}
+  DB=seedData(); save();
+}
+function resetDemo(){
+  localStorage.removeItem(LS_KEY);
+  DB=seedData(); save();
+  toast('Demo data restored to seed','g');
+  renderAll();
+}
+
+/* ---------------- helpers ---------------- */
+
+const $=s=>document.querySelector(s);
+const $$=s=>Array.from(document.querySelectorAll(s));
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+const DAY=86400000;
+function d2t(s){ return Math.floor(new Date(s+'T00:00:00Z').getTime()/DAY); }
+function fmtD(iso){ if(!iso) return '—'; return new Date(iso+'T00:00:00Z').toLocaleDateString(undefined,{day:'numeric',month:'short'}); }
+function pinDayNum(){ if(!DB.pinDay) DB.pinDay=todayISO(); return d2t(DB.pinDay); }
+function sprintLen(sp){ return Math.max(1, (d2t(sp.end)-d2t(sp.start))+1); }
+function daysLeft(sp){ return Math.max(0, d2t(sp.end)-pinDayNum()+1); }
+function dayIdx(sp){ return Math.min(Math.max(pinDayNum()-d2t(sp.start)+1,0), sprintLen(sp)); }
+
+const COLS=[
+  {id:'backlog', nm:'Backlog',     icon:'·'},
+  {id:'todo',    nm:'To Do',       icon:'→'},
+  {id:'wip',     nm:'In Progress', icon:'⚡'},
+  {id:'review',  nm:'Review',      icon:'◈'},
+  {id:'done',    nm:'Done',        icon:'✓'}
+];
+const WIP_LIMIT=4;
+const PTS=[1,2,3,5,8,13];
+const MOSCOW={M:'Must',S:'Should',C:'Could',W:'Won\u2019t'};
+
+const userById = id => TEAM_SEED.find(u=>u.id===id) || {name:'Unassigned',initials:'?',color:'#7e93b6'};
+const epicById = id => EPICS.find(e=>e.id===id) || {name:id,color:'#7e93b6'};
+const sprintByN = n => DB.sprints.find(s=>s.n===n);
+const activeSprint = () => DB.sprints.find(s=>s.status==='active');
+const storyById = id => DB.stories.find(x=>x.id===id);
+const sprintStories = n => DB.stories.filter(s=>s.sprint===n);
+const doneSprints = () => DB.sprints.filter(s=>s.status==='done');
+function sprintPoints(n){ return sprintStories(n).reduce((a,s)=>a+s.points,0); }
+function donePoints(n){ return sprintStories(n).filter(s=>s.status==='done').reduce((a,s)=>a+s.points,0); }
+function colPoints(n,st){ return sprintStories(n).filter(s=>s.status===st).reduce((a,s)=>a+s.points,0); }
+function avgVelocity(){ const ds=doneSprints(); return ds.length? Math.round(ds.reduce((a,s)=>a+s.completed,0)/ds.length*10)/10 : 0; }
+function committedOf(sp){ return sp.committed || sprintPoints(sp.n); }
+function backlogOpenPoints(){ return DB.stories.filter(s=>!s.sprint || s.status!=='done').reduce((a,s)=>a+s.points,0); }
+
+function toast(msg,kind){
+  const box=$('#toasts'); if(!box) return;
+  const el=document.createElement('div');
+  el.className='toast'+(kind?' '+kind:'');
+  el.textContent=msg;
+  box.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),320); },2600);
+}
+
+function openModal(html){ const r=$('#modalRoot'); r.innerHTML='<div class="modal">'+html+'</div>'; r.classList.add('on'); }
+function closeModal(){ const r=$('#modalRoot'); r.classList.remove('on'); r.innerHTML=''; }
+
+/* =====================================================================
+   RENDER
+===================================================================== */
+
+const NAV=[
+  {id:'dash',    ic:'◱', lbl:'Dashboard'},
+  {id:'backlog', ic:'≡', lbl:'Product Backlog'},
+  {id:'board',   ic:'▤', lbl:'Sprint Board'},
+  {id:'sprints', ic:'↻', lbl:'Sprints'},
+  {id:'reports', ic:'◔', lbl:'Reports'},
+  {id:'team',    ic:'☺', lbl:'Team'},
+  {id:'cer',     ic:'✦', lbl:'Ceremonies'},
+  {id:'about',   ic:'★', lbl:'About this App'}
+];
+let VIEW='dash';
+
+function buildNav(){
+  $('#nav').innerHTML = NAV.map(n=>
+    '<button class="navitem'+(n.id===VIEW?' on':'')+'" data-v="'+n.id+'"><span class="ic">'+n.ic+'</span><span class="lbl">'+n.lbl+'</span></button>'
+  ).join('');
+  $$('#nav .navitem').forEach(b=>b.onclick=()=>go(b.dataset.v));
+}
+
+function go(v){
+  VIEW=v;
+  $$('#nav .navitem').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  renderAll();
+  window.scrollTo({top:0});
+}
+
+function head(title,sub,acts){
+  $('#vTitle').textContent=title;
+  $('#vSub').textContent=sub||'';
+  $('#vActs').innerHTML=(acts||'').map(a=>
+    '<button class="abtn '+(a.cls||'')+'" onclick="'+a.fn+'">'+(a.ic||'')+' '+a.lbl+'</button>'
+  ).join('');
+}
+
+function renderAll(){
+  renderSprintChip();
+  const R={dash:vDash, backlog:vBacklog, board:vBoard, sprints:vSprints, reports:vReports, team:vTeam, cer:vCeremonies, about:vAbout};
+  $$('.pane').forEach(p=>p.classList.remove('on'));
+  const pane=$('#v-'+VIEW); if(pane) pane.classList.add('on');
+  (R[VIEW]||vDash)();
+}
+
+function renderSprintChip(){
+  const sp=activeSprint();
+  const el=$('#sprintChip');
+  if(!sp){ el.innerHTML='<b>No active sprint</b><div class="row">Start one in Sprints</div>'; return; }
+  el.innerHTML='<b>'+esc(sp.name)+'</b>'+
+    '<div class="row"><span>Day '+dayIdx(sp)+'/'+sprintLen(sp)+'</span><span>'+daysLeft(sp)+'d left</span></div>'+
+    '<div class="row"><span>Done '+donePoints(sp.n)+'/'+committedOf(sp)+' pts</span></div>';
+}
+
+/* ---------------- dashboard ---------------- */
+
+function vDash(){
+  head('Dashboard','Live state of the product — ScrumForge building ScrumForge',[
+    {lbl:'New story', ic:'＋', fn:'newStoryModal()', cls:'pri'},
+    {lbl:'Open board', ic:'▤', fn:"go('board')"}
+  ]);
+  const sp=activeSprint();
+  const committed=sp?committedOf(sp):0;
+  const done=sp?donePoints(sp.n):0;
+  const pct=committed?Math.round(done/committed*100):0;
+  const wip=sprintStories(sp?sp.n:0).filter(s=>s.status==='wip').length;
+  const ds=doneSprints();
+
+  $('#v-dash').innerHTML=
+    '<div class="kgrid">'+
+      kpi(ds.length?avgVelocity():0,'pts','Avg velocity','g')+
+      kpi(daysLeft(sp),'days','Sprint days left', sp&&daysLeft(sp)<=2?'a':'')+
+      kpi(committed,'pts','Committed','b')+
+      kpi(done,'pts','Done','g')+
+      kpi(pct+'%','','Sprint complete','v')+
+      kpi(wip+'/'+WIP_LIMIT,'','WIP (In Progress)', wip>WIP_LIMIT?'r':'')+
+      kpi(TEAM_SEED.length,'people','Team size','')+
+      kpi(backlogOpenPoints(),'pts','Open backlog','a')+
+    '</div>'+
+    '<div class="g2" style="margin-top:12px">'+
+      '<div class="card"><div class="ct"><span>Active sprint</span><b>'+(sp?esc(sp.name):'none')+'</b></div>'+
+        (sp?
+          '<div style="font-size:12.5px;color:var(--dim);margin-bottom:8px">🎯 '+esc(sp.goal)+'</div>'+
+          '<div class="wl"><span>'+fmtD(sp.start)+' → '+fmtD(sp.end)+'</span><span>'+done+' / '+committed+' pts</span></div>'+
+          '<div class="pbar"><i style="width:'+pct+'%"></i></div>'+
+          '<div style="display:flex;gap:7px;margin-top:11px">'+
+            '<button class="abtn" onclick="go(\'board\')">▤ Sprint board</button>'+
+            '<button class="abtn" onclick="go(\'reports\')">◔ Burndown</button>'+
+            '<button class="abtn" onclick="go(\'cer\')">✦ Ceremonies</button>'+
+          '</div>'
+        :'<div style="color:var(--dim)">No active sprint — start one from the Sprints view.</div>')+
+      '</div>'+
+      '<div class="card"><div class="ct"><span>Burndown · '+(sp?esc(sp.name):'—')+'</span><b>ideal vs remaining</b></div>'+
+        '<canvas id="cBurnMini" class="chart" height="170"></canvas></div>'+
+    '</div>'+
+    '<div class="g2">'+
+      '<div class="card"><div class="ct"><span>Velocity per sprint</span><b>committed vs completed</b></div>'+
+        '<canvas id="cVelMini" class="chart" height="170"></canvas></div>'+
+      '<div class="card"><div class="ct"><span>Latest ceremonies</span><button class="mbtn" onclick="go(\'cer\')">view all</button></div>'+
+        '<div class="feed">'+DB.ceremonies.slice(-4).reverse().map(cerItem).join('')+'</div></div>'+
+    '</div>'+
+    '<div class="card" style="border-color:rgba(167,139,250,.4)"><div class="ct"><span>🐕 Dogfooding</span><b>this app manages its own build</b></div>'+
+      '<div style="font-size:12.5px;color:var(--dim)">Every backlog item, sprint and ceremony you see here is the real history of building ScrumForge itself — '+ds.length+' completed sprints, '+ds.reduce((a,s)=>a+s.completed,0)+' points delivered, velocity trending up. Open <b>About this App</b> for the full story.</div></div>';
+
+  if(sp) lineChart($('#cBurnMini'), burnSeries(sp.n), {today:dayIdx(sp)-1});
+  else   blankChart($('#cBurnMini'));
+  barChart($('#cVelMini'), velSeries());
+}
+
+function kpi(v,unit,lbl,cls){
+  return '<div class="kpi '+(cls||'')+'"><div class="v">'+v+'<small>'+(unit||'')+'</small></div><div class="l">'+lbl+'</div></div>';
+}
+function cerItem(c){
+  const col=c.type==='Retro'?'a':(c.type==='Review'?'g':(c.type==='Daily'?'c':'v'));
+  return '<div class="fitem"><span class="t">'+esc(c.day)+'</span><span class="m"><span class="tag '+col+'">'+esc(c.type)+' · S'+c.sprint+'</span> '+esc(c.note)+'</span></div>';
+}
+function blankChart(cv){ const x=cv.getContext('2d'); x.fillStyle='rgba(126,147,182,.5)'; x.font='11px monospace'; x.fillText('no active sprint', 20, 60); }
+
+/* ---------------- backlog ---------------- */
+
+function vBacklog(){
+  head('Product Backlog','Ordered by value · grouped by epic · '+DB.stories.length+' stories',[
+    {lbl:'New story', ic:'＋', fn:'newStoryModal()', cls:'pri'}
+  ]);
+  $('#v-backlog').innerHTML=
+    '<div id="bkTools">'+
+      '<input type="search" id="bkQ" placeholder="🔍 Search stories…" value="'+esc(bkQ||'')+'">'+
+      '<select id="bkEpic"><option value="">All epics</option>'+EPICS.map(e=>'<option value="'+e.id+'"'+(bkEpic===e.id?' selected':'')+'>'+esc(e.name)+'</option>').join('')+'</select>'+
+      '<select id="bkPri"><option value="">All priorities</option>'+Object.keys(MOSCOW).map(k=>'<option value="'+k+'"'+(bkPri===k?' selected':'')+'>'+k+' · '+MOSCOW[k]+'</option>').join('')+'</select>'+
+    '</div><div id="bkList"></div>';
+  renderBacklogList();
+  $('#bkQ').oninput=e=>{ bkQ=e.target.value; renderBacklogList(); };
+  $('#bkEpic').onchange=e=>{ bkEpic=e.target.value; renderBacklogList(); };
+  $('#bkPri').onchange=e=>{ bkPri=e.target.value; renderBacklogList(); };
+}
+let bkQ='', bkEpic='', bkPri='';
+
+function renderBacklogList(){
+  const q=bkQ.trim().toLowerCase();
+  const groups=EPICS.filter(e=>!bkEpic||e.id===bkEpic).map(e=>{
+    let items=DB.stories.filter(s=>s.epic===e.id);
+    if(q) items=items.filter(s=>s.title.toLowerCase().includes(q)||s.id.toLowerCase().includes(q));
+    if(bkPri) items=items.filter(s=>s.priority===bkPri);
+    return {e,items};
+  }).filter(g=>g.items.length);
+
+  $('#bkList').innerHTML = groups.length? groups.map(g=>{
+    const done=g.items.filter(s=>s.status==='done').length;
+    const pts=g.items.reduce((a,s)=>a+s.points,0);
+    const pct=Math.round(done/g.items.length*100);
+    return '<div class="epic">'+
+      '<div class="epicHead"><span class="dotp" style="background:'+g.e.color+'"></span><b>'+esc(g.e.name)+'</b>'+
+      '<span class="meta">'+done+'/'+g.items.length+' done · '+pts+' pts</span>'+
+      '<span class="bar"><i style="width:'+pct+'%"></i></span>'+
+      '<span class="meta" style="margin-left:auto">'+esc(g.e.desc)+'</span></div>'+
+      g.items.map(s=>storyRow(s,g.items)).join('')+
+      '</div>';
+  }).join('') : '<div class="card" style="color:var(--dim)">No stories match. Adjust filters or add a story.</div>';
+
+  $$('#bkList .st').forEach(el=>el.onclick=()=>storyModal(el.dataset.id));
+  $$('#bkList .mbtn[data-act]').forEach(b=>b.onclick=()=>moveStory(b.dataset.id,b.dataset.act));
+}
+
+function storyRow(s,list){
+  const u=userById(s.assignee), e=epicById(s.epic);
+  const idx=list.indexOf(s);
+  return '<div class="storyRow">'+
+    '<span class="sid">'+esc(s.id)+'</span>'+
+    '<span class="st" data-id="'+esc(s.id)+'" title="Open story">'+esc(s.title)+'</span>'+
+    '<span class="tag '+(s.sprint?'c':'d')+'">'+(s.sprint?('S'+s.sprint):'unscheduled')+'</span>'+
+    '<span class="tag '+(s.status==='done'?'g':(s.status==='review'?'a':(s.status==='wip'?'v':'d')))+'">'+colName(s.status)+'</span>'+
+    '<span class="tag '+(s.priority==='M'?'r':(s.priority==='S'?'c':(s.priority==='C'?'b':'d')))+'">'+esc(s.priority)+'</span>'+
+    '<span class="pts">'+s.points+'</span>'+
+    '<span class="ava" style="background:'+u.color+'" title="'+esc(u.name)+'">'+esc(u.initials)+'</span>'+
+    '<span class="mv">'+
+      '<button class="mbtn" data-act="up" data-id="'+esc(s.id)+'" '+(idx<=0?'disabled':'')+'>▲</button>'+
+      '<button class="mbtn" data-act="dn" data-id="'+esc(s.id)+'" '+(idx>=list.length-1?'disabled':'')+'>▼</button>'+
+    '</span></div>';
+}
+function colName(st){ const c=COLS.find(c=>c.id===st); return c?c.nm:st; }
+
+/* ---------------- board ---------------- */
+
+function vBoard(){
+  const sp=activeSprint();
+  head('Sprint Board','Drag cards between columns · '+(sp?esc(sp.name):'no active sprint'),[
+    {lbl:'New story', ic:'＋', fn:'newStoryModal()', cls:'pri'}
+  ]);
+  const stories=sp?sprintStories(sp.n):[];
+  $('#v-board').innerHTML='<div id="board">'+COLS.map(c=>{
+    const items=stories.filter(s=>s.status===c.id);
+    const pts=items.reduce((a,s)=>a+s.points,0);
+    const wip=c.id==='wip';
+    return '<div class="bcol" data-col="'+c.id+'">'+
+      '<div class="bcolH"><span>'+c.icon+'</span><span class="nm">'+c.nm+'</span>'+
+      (wip?'<span class="wip'+(items.length>WIP_LIMIT?' hot':'')+'">WIP ≤'+WIP_LIMIT+'</span>':'')+
+      '<span class="cnt">'+items.length+' · '+pts+'p</span></div>'+
+      '<div class="bcolBody">'+
+        items.map(s=>{
+          const u=userById(s.assignee);
+          return '<div class="bcard" draggable="true" data-id="'+esc(s.id)+'">'+
+            '<div class="bid"><span>'+esc(s.id)+'</span><span>'+esc(s.priority)+'</span></div>'+
+            '<div class="bt" data-id="'+esc(s.id)+'">'+esc(s.title)+'</div>'+
+            '<div class="bmeta"><span class="pts">'+s.points+'</span><span class="ep">'+esc(epicById(s.epic).name)+'</span>'+
+            '<span class="ava" style="background:'+u.color+'" title="'+esc(u.name)+'">'+esc(u.initials)+'</span></div></div>';
+        }).join('')+
+      '</div>'+
+      '<button class="bcolAdd" onclick="newStoryModal(\''+c.id+'\')">＋ add story</button></div>';
+  }).join('')+'</div>';
+
+  if(!sp) $('#v-board').innerHTML='<div class="card" style="color:var(--dim)">No active sprint. Start one in <b>Sprints</b>, or plan stories into a sprint first.</div>';
+
+  $$('#board .bcard').forEach(el=>{
+    el.ondragstart=e=>{ e.dataTransfer.setData('text/plain',el.dataset.id); el.classList.add('dragging'); };
+    el.ondragend=()=>el.classList.remove('dragging');
+  });
+  $$('#board .bt').forEach(el=>el.onclick=()=>storyModal(el.dataset.id));
+  $$('#board .bcol').forEach(col=>{
+    col.ondragover=e=>{ e.preventDefault(); col.classList.add('over'); };
+    col.ondragleave=()=>col.classList.remove('over');
+    col.ondrop=e=>{
+      e.preventDefault(); col.classList.remove('over');
+      const id=e.dataTransfer.getData('text/plain');
+      if(id) setStatus(id, col.dataset.col);
+    };
+  });
+}
+
+/* ---------------- sprints ---------------- */
+
+function vSprints(){
+  head('Sprints','Plan · start · close — the heartbeat of Scrum',[
+    {lbl:'New sprint', ic:'＋', fn:'newSprintModal()', cls:'pri'}
+  ]);
+  $('#v-sprints').innerHTML='<div class="spGrid">'+DB.sprints.slice().sort((a,b)=>a.n-b.n).map(sp=>{
+    const total=committedOf(sp), done=sp.status==='done'?sp.completed:donePoints(sp.n);
+    const pct=total?Math.round(done/total*100):0;
+    const stTag=sp.status==='done'?'g':(sp.status==='active'?'c':'a');
+    return '<div class="spCard '+sp.status+'">'+
+      '<div class="spTop"><span class="spName">'+esc(sp.name)+'</span><span class="tag '+stTag+'">'+sp.status.toUpperCase()+'</span></div>'+
+      '<div class="spGoal">🎯 '+esc(sp.goal)+'</div>'+
+      '<div class="spMeta"><span>📅 '+fmtD(sp.start)+' → '+fmtD(sp.end)+'</span><span>⏱ '+sprintLen(sp)+'d</span>'+
+      (sp.status==='active'?'<span>🔥 '+daysLeft(sp)+'d left</span>':'')+'</div>'+
+      '<div class="wl"><span>'+done+' / '+total+' pts</span><span>'+pct+'%</span></div>'+
+      '<div class="pbar"><i style="width:'+pct+'%"></i></div>'+
+      '<div class="spFoot">'+
+        (sp.status==='planned'?'<button class="abtn pri" onclick="startSprint('+sp.n+')">▶ Start sprint</button>'+
+          '<button class="abtn" onclick="editSprintModal('+sp.n+')">✎ Edit</button>'+
+          '<button class="abtn dng" onclick="deleteSprint('+sp.n+')">🗑</button>':'')+
+        (sp.status==='active'?'<button class="abtn" onclick="go(\'board\')">▤ Board</button>'+
+          '<button class="abtn g" style="border-color:rgba(52,211,153,.5);color:var(--gr)" onclick="closeSprint('+sp.n+')">✓ Close sprint</button>':'')+
+        (sp.status==='done'?'<span class="tag g">velocity '+sp.completed+' pts</span>':'')+
+      '</div></div>';
+  }).join('')+'</div>';
+}
+
+/* ---------------- reports ---------------- */
+
+function vReports(){
+  head('Reports','Burndown & velocity — computed live from the board · export below for your hand-in',[
+    {lbl:'Export CSV', ic:'⬇', fn:'exportCSV()'},
+    {lbl:'Print / PDF report', ic:'🖨', fn:'printReport()', cls:'pri'}
+  ]);
+  const sp=activeSprint()||doneSprints().slice(-1)[0];
+  const ds=doneSprints();
+  $('#v-reports').innerHTML=
+    '<div class="card"><div class="ct"><span>Sprint burndown</span>'+
+      '<select id="repSprint" style="max-width:220px">'+DB.sprints.map(s=>'<option value="'+s.n+'"'+((sp&&s.n===sp.n)?' selected':'')+'>S'+s.n+' · '+esc(s.name)+'</option>').join('')+'</select></div>'+
+      '<canvas id="cBurn" class="chart" height="260"></canvas>'+
+      '<div style="font-size:10.5px;color:var(--dim);margin-top:6px">Ideal line (dashed) assumes linear burn. Review column burns 50% credit. Marker = pinned demo day.</div></div>'+
+    '<div class="g2">'+
+      '<div class="card"><div class="ct"><span>Velocity</span><b>avg '+avgVelocity()+' pts</b></div><canvas id="cVel" class="chart" height="240"></canvas></div>'+
+      '<div class="card"><div class="ct"><span>Sprint summary</span><b>'+ds.length+' completed</b></div>'+
+        '<table class="tb"><thead><tr><th>Sprint</th><th>Committed</th><th>Completed</th><th>Spill</th><th>Success</th></tr></thead><tbody>'+
+        DB.sprints.filter(s=>s.status!=='planned').map(s=>{
+          const c=committedOf(s), d=s.status==='done'?s.completed:donePoints(s.n);
+          return '<tr><td>S'+s.n+'</td><td>'+c+'</td><td>'+d+'</td><td>'+(c-d)+'</td><td>'+(c?Math.round(d/c*100):0)+'%</td></tr>';
+        }).join('')+'</tbody></table></div>'+
+    '</div>';
+  $('#repSprint').onchange=e=>{ const s=sprintByN(+e.target.value); lineChart($('#cBurn'), burnSeries(+e.target.value), {today: s.status==='active'?dayIdx(s)-1:null}); };
+  lineChart($('#cBurn'), burnSeries(sp?sp.n:1), {today: sp&&sp.status==='active'?dayIdx(sp)-1:null});
+  barChart($('#cVel'), velSeries());
+}
+
+/* ---------------- team ---------------- */
+
+function vTeam(){
+  head('Team & Roles','Cross-functional, self-organising — 6 members, 1 AI pair programmer',[]);
+  $('#v-team').innerHTML=
+    '<div class="tGrid">'+TEAM_SEED.map(u=>{
+      const sp=activeSprint();
+      const load=sp?sprintStories(sp.n).filter(s=>s.assignee===u.id&&s.status!=='done').reduce((a,s)=>a+s.points,0):0;
+      const pct=Math.min(100,Math.round(load/u.capacity*100));
+      return '<div class="tCard">'+
+        '<div class="tTop"><div class="tAva" style="background:'+u.color+'">'+esc(u.initials)+'</div>'+
+        '<div><div class="tName">'+esc(u.name)+'</div><div class="tRole">'+esc(u.role)+'</div></div></div>'+
+        '<div class="wl"><span>Sprint load</span><span>'+load+' / '+u.capacity+' pts</span></div>'+
+        '<div class="pbar"><i style="width:'+pct+'%;'+(pct>100?'background:var(--am)':'')+'"></i></div>'+
+        '<div class="chips">'+u.skills.map(s=>'<span class="tag d">'+esc(s)+'</span>').join('')+'</div>'+
+        '</div>';
+    }).join('')+'</div>'+
+    '<div class="g2" style="margin-top:12px">'+
+      '<div class="card"><div class="ct"><span>Definition of Done</span><b>every story, every sprint</b></div>'+
+        ['Acceptance criteria met','Code reviewed (pair or peer)','Tests pass','No regressions','Demoed at Sprint Review','Docs updated']
+          .map(d=>'<div class="chk done"><span class="bx">✓</span>'+d+'</div>').join('')+'</div>'+
+      '<div class="card"><div class="ct"><span>Scrum values in practice</span></div>'+
+        ['<b>Commitment</b> — capacity-based sprint planning (S3 spill fixed this)','<b>Focus</b> — WIP limit ≤'+WIP_LIMIT+' on In Progress','<b>Openness</b> — every impediment logged in ceremonies','<b>Respect</b> — estimations owned by the team, not the PO','<b>Courage</b> — 3 pts spilled in S3 and said so publicly']
+          .map(t=>'<div class="chk"><span class="bx">◆</span><span>'+t+'</span></div>').join('')+'</div>'+
+    '</div>';
+}
+
+/* ---------------- ceremonies ---------------- */
+
+function vCeremonies(){
+  head('Ceremonies','The five Scrum events — logged as they happened',[]);
+  const bySprint={};
+  DB.ceremonies.forEach(c=>{ (bySprint[c.sprint]=bySprint[c.sprint]||[]).push(c); });
+  const nums=Object.keys(bySprint).map(Number).sort((a,b)=>b-a);
+  $('#v-cer').innerHTML=
+    '<div class="card"><div class="ct"><span>Retrospective · cumulative</span><b>what we keep, what we fix</b></div>'+
+      '<div class="retroG">'+
+        '<div class="retroCol rw"><h4>😊 Went well</h4><ul>'+DB.retros.well.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>'+
+        '<div class="retroCol ri"><h4>🧩 To improve</h4><ul>'+DB.retros.improve.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>'+
+        '<div class="retroCol ra"><h4>⚡ Actions</h4><ul>'+DB.retros.actions.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>'+
+      '</div></div>'+
+    nums.map(n=>{
+      const sp=sprintByN(n);
+      return '<div class="card"><div class="ct"><span>'+(sp?esc(sp.name):'Sprint '+n)+'</span><b>'+bySprint[n].length+' events</b></div>'+
+        '<div class="feed">'+bySprint[n].slice().reverse().map(cerItem).join('')+'</div></div>';
+    }).join('');
+}
+
+/* ---------------- about ---------------- */
+
+function vAbout(){
+  head('About this App','ScrumForge — a Scrum delivery platform, delivered with Scrum',[]);
+  const ds=doneSprints();
+  $('#v-about').innerHTML=
+    '<div class="g2">'+
+      '<div class="card"><div class="ct"><span>Product vision</span></div>'+
+        '<div style="font-size:13px;line-height:1.6">For agile teams who need lightweight, honest delivery tooling, <b>ScrumForge</b> is a Scrum platform that manages backlogs, sprints and ceremonies with zero setup — unlike heavyweight suites, it runs anywhere as a single file and demonstrates the very process it supports.</div>'+
+        '<h3 class="sec">Stack & architecture</h3>'+
+        '<table class="tb"><tbody>'+
+        '<tr><td>UI</td><td class="t">Single-file HTML/CSS/JS — no dependencies</td></tr>'+
+        '<tr><td>Charts</td><td class="t">Hand-rolled canvas (burndown, velocity, sparklines)</td></tr>'+
+        '<tr><td>State</td><td class="t">localStorage store + re-seedable demo dataset</td></tr>'+
+        '<tr><td>Deploy</td><td class="t">Any static host (GitHub Pages / Netlify)</td></tr>'+
+        '<tr><td>Export</td><td class="t">CSV dataset + print-to-PDF sprint report</td></tr>'+
+        '<tr><td>Sprints</td><td class="t">'+ds.length+' completed · velocity '+avgVelocity()+' avg</td></tr>'+
+        '</tbody></table></div>'+
+      '<div class="card"><div class="ct"><span>Sprint timeline — how this app was built</span></div><div class="tl">'+
+        DB.sprints.map(sp=>{
+          const done=sp.status==='done';
+          return '<div class="tlItem'+(done?' past':'')+'"><div class="tlD">'+fmtD(sp.start)+' → '+fmtD(sp.end)+' · '+sp.status.toUpperCase()+'</div>'+
+            '<div class="tlT">'+esc(sp.name)+'</div><div class="tlM">'+esc(sp.goal)+' — '+committedOf(sp)+' pts committed</div></div>';
+        }).join('')+
+      '</div></div>'+
+    '</div>'+
+    '<div class="card"><div class="ct"><span>Scrum mapping — where the framework lives in this app</span></div>'+
+      '<table class="tb"><thead><tr><th>Scrum element</th><th>Where you see it</th></tr></thead><tbody>'+
+      [['Product Backlog','Backlog view — ordered, estimated, MoSCoW-tagged stories'],
+       ['Sprint Planning','Sprints view — capacity check, sprint goal, commitment'],
+       ['Sprint Backlog','Board — stories pulled into the active sprint'],
+       ['Daily Scrum','Ceremonies log — impediments & burn notes per day'],
+       ['Increment / DoD','Done column + Definition of Done checklist'],
+       ['Sprint Review','Ceremonies — demo & acceptance per sprint'],
+       ['Retrospective','Ceremonies — went well / improve / actions board'],
+       ['Velocity & Burndown','Reports — live-computed from the board']
+      ].map(r=>'<tr><td class="t"><b>'+r[0]+'</b></td><td class="t">'+r[1]+'</td></tr>').join('')+
+      '</tbody></table></div>';
+}
+
+/* =====================================================================
+   CHARTS (canvas, no libraries)
+===================================================================== */
+
+function prepCanvas(cv){
+  const dpr=window.devicePixelRatio||1;
+  const w=cv.clientWidth||600, h=cv.height;
+  cv.width=w*dpr; cv.style.height=h+'px'; cv.height=h*dpr;
+  const x=cv.getContext('2d'); x.scale(dpr,dpr);
+  return {x,w,h};
+}
+
+function burnSeries(n){
+  const sp=sprintByN(n); if(!sp) return [];
+  const total=committedOf(sp), len=sprintLen(sp);
+  const done=sprintStories(n).filter(s=>s.status==='done');
+  const per=done.length?len/(done.length+1):0;
+  const compDay=done.map((s,i)=>Math.max(1,Math.round((i+1)*per)));
+  const today=sp.status==='active'?dayIdx(sp)-1:len-1;
+  const out=[];
+  for(let d=0; d<=Math.max(today,0); d++){
+    let rem=total;
+    compDay.forEach((cd,i)=>{ if(cd<=d) rem-=done[i].points; });
+    out.push(Math.max(0,rem));
+  }
+  return out;
+}
+
+function velSeries(){
+  return doneSprints().map(s=>({label:'S'+s.n, committed:committedOf(s), completed:s.completed}));
+}
+
+function lineChart(cv, series, opts){
+  if(!cv) return;
+  const {x,w,h}=prepCanvas(cv);
+  const o=opts||{};
+  x.clearRect(0,0,w,h);
+  const pad={l:34,r:12,t:12,b:22};
+  const data=series.slice();
+  const idealLen=data.length;
+  if(!data.length){ x.fillStyle='rgba(126,147,182,.5)'; x.font='11px monospace'; x.fillText('no data yet',pad.l,40); return; }
+  const max=Math.max(1,...data);
+  const X=i=>pad.l+(idealLen<=1?0:(w-pad.l-pad.r)*(i/(idealLen-1)));
+  const Y=v=>h-pad.b-(h-pad.t-pad.b)*(v/max);
+  x.strokeStyle='rgba(56,189,248,.14)'; x.fillStyle='rgba(126,147,182,.9)'; x.font='9px monospace';
+  for(let g=0;g<=4;g++){
+    const vy=pad.t+(h-pad.t-pad.b)*g/4;
+    x.beginPath(); x.moveTo(pad.l,vy); x.lineTo(w-pad.r,vy); x.stroke();
+    x.fillText(String(Math.round(max*(1-g/4))), 6, vy+3);
+  }
+  x.beginPath();
+  for(let i=0;i<idealLen;i++){ const px=X(i),py=Y(max*(1-i/Math.max(idealLen-1,1))); i?x.lineTo(px,py):x.moveTo(px,py); }
+  x.setLineDash([4,4]); x.strokeStyle='rgba(126,147,182,.6)'; x.stroke(); x.setLineDash([]);
+  x.beginPath();
+  data.forEach((v,i)=>{ i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v)); });
+  x.strokeStyle='#22d3ee'; x.lineWidth=2; x.stroke();
+  x.lineTo(X(data.length-1),h-pad.b); x.lineTo(X(0),h-pad.b); x.closePath();
+  x.fillStyle='rgba(34,211,238,.08)'; x.fill();
+  data.forEach((v,i)=>{ x.beginPath(); x.arc(X(i),Y(v),2.4,0,7); x.fillStyle='#22d3ee'; x.fill(); });
+  if(o.today!=null && o.today>=0 && o.today<idealLen){
+    x.setLineDash([3,3]); x.strokeStyle='rgba(251,191,36,.7)';
+    x.beginPath(); x.moveTo(X(o.today),pad.t); x.lineTo(X(o.today),h-pad.b); x.stroke(); x.setLineDash([]);
+    x.fillStyle='#fbbf24'; x.font='9px monospace'; x.fillText('today', X(o.today)-14, pad.t+8);
+  }
+  x.fillStyle='rgba(126,147,182,.8)';
+  for(let i=0;i<idealLen;i+=Math.ceil(idealLen/8)||1) x.fillText(String(i+1), X(i)-3, h-8);
+}
+
+function barChart(cv, groups){
+  if(!cv) return;
+  const {x,w,h}=prepCanvas(cv);
+  x.clearRect(0,0,w,h);
+  const pad={l:34,r:12,t:14,b:22};
+  if(!groups.length){ x.fillStyle='rgba(126,147,182,.5)'; x.font='11px monospace'; x.fillText('no completed sprints yet',pad.l,40); return; }
+  const max=Math.max(1,...groups.map(g=>Math.max(g.committed,g.completed)));
+  const bw=(w-pad.l-pad.r)/groups.length;
+  x.strokeStyle='rgba(56,189,248,.14)'; x.fillStyle='rgba(126,147,182,.9)'; x.font='9px monospace';
+  for(let g=0;g<=4;g++){
+    const vy=pad.t+(h-pad.t-pad.b)*g/4;
+    x.beginPath(); x.moveTo(pad.l,vy); x.lineTo(w-pad.r,vy); x.stroke();
+    x.fillText(String(Math.round(max*(1-g/4))), 6, vy+3);
+  }
+  groups.forEach((g,i)=>{
+    const cx=pad.l+bw*i;
+    const b1w=Math.min(16,bw*0.28);
+    const h1=(h-pad.t-pad.b)*(g.committed/max);
+    const h2=(h-pad.t-pad.b)*(g.completed/max);
+    x.fillStyle='rgba(96,165,250,.55)'; x.fillRect(cx+bw*0.22-b1w, h-pad.b-h1, b1w, h1);
+    x.fillStyle='#34d399';             x.fillRect(cx+bw*0.55,     h-pad.b-h2, b1w, h2);
+    x.fillStyle='rgba(126,147,182,.9)';
+    x.fillText(g.label, cx+bw/2-8, h-8);
+    if(g.completed>g.committed){} // (over-delivery would render same)
+  });
+  const avg=groups.reduce((a,g)=>a+g.completed,0)/groups.length;
+  const ay=h-pad.b-(h-pad.t-pad.b)*(avg/max);
+  x.setLineDash([4,4]); x.strokeStyle='rgba(52,211,153,.8)';
+  x.beginPath(); x.moveTo(pad.l,ay); x.lineTo(w-pad.r,ay); x.stroke(); x.setLineDash([]);
+  x.fillStyle='rgba(52,211,153,.95)'; x.fillText('avg '+avg.toFixed(1), w-58, ay-4);
+}
+
+/* =====================================================================
+   ACTIONS
+===================================================================== */
+
+function nextStoryId(){
+  const nums=DB.stories.map(s=>{ const m=s.id.match(/(\d+)$/); return m?+m[1]:0; });
+  const n=Math.max(100,...nums)+1;
+  return 'SF-'+n;
+}
+
+function newStoryModal(status){
+  const sp=activeSprint();
+  openModal(
+    '<div class="mHead"><b>＋ New story</b><button class="x" onclick="closeModal()">✕</button></div>'+
+    '<div class="mBody">'+storyForm({id:nextStoryId(), title:'', points:3, epic:'E1', assignee:'U3', status:status||'backlog', priority:'S', sprint:sp?sp.n:null, criteria:''})+'</div>'+
+    '<div class="mFoot"><button class="abtn" onclick="closeModal()">Cancel</button>'+
+    '<button class="abtn pri" onclick="saveStory(null)">💾 Create story</button></div>');
+}
+
+function storyModal(id){
+  const s=storyById(id); if(!s) return;
+  openModal(
+    '<div class="mHead"><span class="tag c">'+esc(s.id)+'</span><b>Edit story</b><button class="x" onclick="closeModal()">✕</button></div>'+
+    '<div class="mBody">'+storyForm(s)+'</div>'+
+    '<div class="mFoot"><button class="abtn dng" onclick="deleteStory(\''+esc(s.id)+'\')">🗑 Delete</button>'+
+    '<button class="abtn" onclick="closeModal()">Cancel</button>'+
+    '<button class="abtn pri" onclick="saveStory(\''+esc(s.id)+'\')">💾 Save</button></div>');
+}
+
+function storyForm(s){
+  return '<div class="frow one"><div class="fld"><label>Title (user story)</label><input id="fTitle" value="'+esc(s.title)+'" placeholder="As a … I want … so that …"></div></div>'+
+    '<div class="frow">'+
+      '<div class="fld"><label>Epic</label><select id="fEpic">'+EPICS.map(e=>'<option value="'+e.id+'"'+(s.epic===e.id?' selected':'')+'>'+esc(e.name)+'</option>').join('')+'</select></div>'+
+      '<div class="fld"><label>Story points</label><select id="fPts">'+PTS.map(p=>'<option'+(s.points===p?' selected':'')+'>'+p+'</option>').join('')+'</select></div>'+
+    '</div>'+
+    '<div class="frow">'+
+      '<div class="fld"><label>Assignee</label><select id="fAsg">'+TEAM_SEED.map(u=>'<option value="'+u.id+'"'+(s.assignee===u.id?' selected':'')+'>'+esc(u.name)+' — '+esc(u.role)+'</option>').join('')+'</select></div>'+
+      '<div class="fld"><label>Priority (MoSCoW)</label><select id="fPri">'+Object.keys(MOSCOW).map(k=>'<option value="'+k+'"'+(s.priority===k?' selected':'')+'>'+k+' · '+MOSCOW[k]+'</option>').join('')+'</select></div>'+
+    '</div>'+
+    '<div class="frow">'+
+      '<div class="fld"><label>Status</label><select id="fSt">'+COLS.map(c=>'<option value="'+c.id+'"'+(s.status===c.id?' selected':'')+'>'+c.nm+'</option>').join('')+'</select></div>'+
+      '<div class="fld"><label>Sprint</label><select id="fSp"><option value="">(backlog — unscheduled)</option>'+DB.sprints.map(x=>'<option value="'+x.n+'"'+(s.sprint===x.n?' selected':'')+'>S'+x.n+' · '+esc(x.name)+'</option>').join('')+'</select></div>'+
+    '</div>'+
+    '<div class="frow one"><div class="fld"><label>Acceptance criteria (one per line)</label><textarea id="fCrit" placeholder="Given / when / then…">'+esc(s.criteria||'')+'</textarea></div></div>';
+}
+
+function saveStory(id){
+  const title=$('#fTitle').value.trim();
+  if(!title){ toast('Title is required','a'); return; }
+  const data={
+    title:title,
+    epic:$('#fEpic').value,
+    points:parseInt($('#fPts').value,10)||3,
+    assignee:$('#fAsg').value,
+    priority:$('#fPri').value,
+    status:$('#fSt').value,
+    sprint:$('#fSp').value?parseInt($('#fSp').value,10):null,
+    criteria:$('#fCrit').value.trim()
+  };
+  if(id){
+    Object.assign(storyById(id),data);
+    toast(id+' updated','g');
+  }else{
+    DB.stories.push(Object.assign({id:nextStoryId()},data));
+    toast('Story created','g');
+  }
+  save(); closeModal(); renderAll();
+}
+
+function deleteStory(id){
+  const s=storyById(id); if(!s) return;
+  if(!confirm('Delete '+id+' — "'+s.title+'"?')) return;
+  DB.stories=DB.stories.filter(x=>x.id!==id);
+  save(); closeModal(); renderAll(); toast(id+' deleted','r');
+}
+
+function setStatus(id,status){
+  const s=storyById(id); if(!s) return;
+  if(s.status===status) return;
+  s.status=status;
+  save(); renderAll();
+  toast(id+' → '+colName(status), status==='done'?'g':'');
+}
+
+function moveStory(id,dir){
+  const epic=DB.stories.filter(s=>s.epic===storyById(id).epic);
+  const i=epic.findIndex(s=>s.id===id);
+  const j=dir==='up'?i-1:i+1;
+  if(j<0||j>=epic.length) return;
+  const gi=DB.stories.indexOf(epic[i]), gj=DB.stories.indexOf(epic[j]);
+  const tmp=DB.stories[gi]; DB.stories[gi]=DB.stories[gj]; DB.stories[gj]=tmp;
+  save(); renderAll();
+}
+
+function newSprintModal(){
+  openModal(
+    '<div class="mHead"><b>＋ New sprint</b><button class="x" onclick="closeModal()">✕</button></div>'+
+    '<div class="mBody">'+sprintForm({name:'',goal:'',start:DB.pinDay||todayISO(),end:''})+'</div>'+
+    '<div class="mFoot"><button class="abtn" onclick="closeModal()">Cancel</button>'+
+    '<button class="abtn pri" onclick="saveSprint(null)">💾 Create sprint</button></div>');
+}
+
+function editSprintModal(n){
+  const sp=sprintByN(n); if(!sp) return;
+  openModal(
+    '<div class="mHead"><b>✎ '+esc(sp.name)+'</b><button class="x" onclick="closeModal()">✕</button></div>'+
+    '<div class="mBody">'+sprintForm(sp)+'</div>'+
+    '<div class="mFoot"><button class="abtn" onclick="closeModal()">Cancel</button>'+
+    '<button class="abtn pri" onclick="saveSprint('+n+')">💾 Save</button></div>');
+}
+
+function sprintForm(sp){
+  return '<div class="frow one"><div class="fld"><label>Sprint name</label><input id="sName" value="'+esc(sp.name||'')+'" placeholder="Sprint 8 · Big Things"></div></div>'+
+    '<div class="frow one"><div class="fld"><label>Sprint goal (required to start)</label><input id="sGoal" value="'+esc(sp.goal||'')+'" placeholder="Why is this sprint valuable?"></div></div>'+
+    '<div class="frow">'+
+      '<div class="fld"><label>Start date</label><input id="sStart" type="date" value="'+esc(sp.start||'')+'"></div>'+
+      '<div class="fld"><label>End date</label><input id="sEnd" type="date" value="'+esc(sp.end||'')+'"></div>'+
+    '</div>';
+}
+
+function saveSprint(n){
+  const name=$('#sName').value.trim(), goal=$('#sGoal').value.trim();
+  const start=$('#sStart').value, end=$('#sEnd').value;
+  if(!name||!start||!end){ toast('Name, start and end are required','a'); return; }
+  if(d2t(end)<d2t(start)){ toast('End date must be after start','a'); return; }
+  if(n){
+    Object.assign(sprintByN(n),{name,goal,start,end});
+    toast('Sprint updated','g');
+  }else{
+    const next=Math.max(0,...DB.sprints.map(s=>s.n))+1;
+    DB.sprints.push({n:next,name,goal,start,end,status:'planned',committed:0,completed:0});
+    toast('Sprint created — plan stories into it','g');
+  }
+  save(); closeModal(); renderAll();
+}
+
+function startSprint(n){
+  const sp=sprintByN(n); if(!sp) return;
+  if(activeSprint()){ toast('Close the active sprint first','a'); return; }
+  if(!sp.goal){ toast('A sprint goal is required to start','a'); return; }
+  const pts=sprintPoints(n);
+  if(!pts){ toast('Plan at least one story into this sprint','a'); return; }
+  sp.status='active';
+  sp.committed=pts;
+  save(); renderAll();
+  toast(sp.name+' started — '+pts+' pts committed 🚀','g');
+}
+
+function closeSprint(n){
+  const sp=sprintByN(n); if(!sp) return;
+  const spilled=sprintStories(n).filter(s=>s.status!=='done');
+  const spillPts=spilled.reduce((a,s)=>a+s.points,0);
+  if(!confirm('Close '+sp.name+'?\n\nCompleted: '+donePoints(n)+' pts\nSpilled back to backlog: '+spilled.length+' stories ('+spillPts+' pts)\n\nSpilled stories return to the Product Backlog for re-planning.')) return;
+  spilled.forEach(s=>{ s.sprint=null; });
+  sp.status='done';
+  sp.completed=donePoints(n);
+  save(); renderAll();
+  toast(sp.name+' closed · '+sp.completed+' pts delivered'+(spillPts?' · '+spillPts+' pts spilled':''),'g');
+}
+
+function deleteSprint(n){
+  const sp=sprintByN(n); if(!sp) return;
+  if(sp.status==='active'){ toast('Close the sprint before deleting','a'); return; }
+  if(!confirm('Delete '+sp.name+'? Its stories return to the backlog.')) return;
+  sprintStories(n).forEach(s=>{ s.sprint=null; });
+  DB.sprints=DB.sprints.filter(s=>s.n!==n);
+  save(); renderAll(); toast('Sprint deleted','r');
+}
+
+/* =====================================================================
+   EXPORT — CSV dataset & printable sprint report (hand-in artifacts)
+===================================================================== */
+
+function csvCell(v){
+  v=String(v==null?'':v);
+  if(/[",\n\r]/.test(v)) v='"'+v.replace(/"/g,'""')+'"';
+  return v;
+}
+
+function exportCSV(){
+  const L=[];
+  L.push('SPRINT SUMMARY');
+  L.push(['Sprint','Name','Status','Start','End','Committed','Completed','Spilled','Success %'].map(csvCell).join(','));
+  DB.sprints.forEach(sp=>{
+    const c=committedOf(sp), d=sp.status==='done'?sp.completed:donePoints(sp.n);
+    L.push([sp.n,sp.name,sp.status,sp.start,sp.end,c,d,c-d,(c?Math.round(d/c*100):0)+'%'].map(csvCell).join(','));
+  });
+  L.push('');
+  L.push('STORIES');
+  L.push(['ID','Title','Epic','Points','Priority','Assignee','Status','Sprint'].map(csvCell).join(','));
+  DB.stories.forEach(s=>{
+    L.push([s.id,s.title,epicById(s.epic).name,s.points,s.priority,userById(s.assignee).name,colName(s.status),s.sprint?('S'+s.sprint):''].map(csvCell).join(','));
+  });
+  const blob=new Blob(['\uFEFF'+L.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='scrumforge-report-'+(DB.pinDay||todayISO())+'.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast('CSV report downloaded','g');
+}
+
+/* Renders a chart into an offscreen canvas and returns a PNG data-URL
+   (images print reliably; raw canvases often do not). */
+function chartImage(w,h,drawFn){
+  const host=document.createElement('div');
+  host.style.cssText='position:fixed;left:-9999px;top:0;width:'+w+'px;';
+  const cv=document.createElement('canvas');
+  cv.height=h; cv.style.width=w+'px';
+  host.appendChild(cv); document.body.appendChild(host);
+  const x=cv.getContext('2d');
+  x.fillStyle='#0b1526'; x.fillRect(0,0,w,h);
+  drawFn(cv);
+  const url=cv.toDataURL('image/png');
+  host.remove();
+  return url;
+}
+
+function buildReportHTML(n){
+  const sp=sprintByN(n)||activeSprint()||doneSprints().slice(-1)[0]||DB.sprints[0];
+  const ds=doneSprints();
+  const burnImg=chartImage(860,300,cv=>lineChart(cv,burnSeries(sp.n),{today: sp.status==='active'?dayIdx(sp)-1:null}));
+  const velImg=chartImage(860,300,cv=>barChart(cv,velSeries()));
+  const stories=sprintStories(sp.n);
+  const c=committedOf(sp), d=sp.status==='done'?sp.completed:donePoints(sp.n);
+  const cers=DB.ceremonies.filter(x=>x.sprint===sp.n);
+  const cer=cers.length
+    ? cers.map(x=>'<tr><td>'+esc(x.day)+'</td><td>'+esc(x.type)+'</td><td>'+esc(x.note)+'</td></tr>').join('')
+    : '<tr><td colspan="3" class="mut">No ceremonies logged for this sprint.</td></tr>';
+  const DoD=['Acceptance criteria met','Code reviewed (pair or peer)','Tests pass','No regressions','Demoed at Sprint Review','Docs updated'];
+
+  return '<div class="rp-head"><div class="rp-brand">⚒ SCRUMFORGE</div><div><h1>Sprint Report</h1>'+
+    '<div class="rp-sub">ScrumForge — a Scrum delivery platform, built with Scrum · generated '+fmtD(DB.pinDay||todayISO())+'</div></div></div>'+
+
+    '<div class="rp-card"><h2>1 · Product summary</h2><table class="rp-kv">'+
+    '<tr><th>Product vision</th><td>For agile teams who need lightweight, honest delivery tooling, ScrumForge is a Scrum platform managing backlogs, sprints and ceremonies with zero setup — demonstrating the very process it supports.</td></tr>'+
+    '<tr><th>Team</th><td>'+TEAM_SEED.map(u=>esc(u.name)+' ('+esc(u.role)+')').join(' · ')+'</td></tr>'+
+    '<tr><th>Delivery record</th><td>'+ds.length+' sprints completed · average velocity '+avgVelocity()+' pts · '+ds.reduce((a,s)=>a+s.completed,0)+' points delivered · '+DB.stories.length+' stories managed</td></tr>'+
+    '</table></div>'+
+
+    '<div class="rp-card"><h2>2 · Sprint summary</h2><table class="rp-tb">'+
+    '<tr><th>Sprint</th><th>Goal</th><th>Dates</th><th>Status</th><th>Committed</th><th>Completed</th><th>Spill</th><th>Success</th></tr>'+
+    DB.sprints.map(s=>{const cc=committedOf(s), dd=s.status==='done'?s.completed:donePoints(s.n);
+      return '<tr><td>S'+s.n+'</td><td>'+esc(s.goal)+'</td><td>'+fmtD(s.start)+' → '+fmtD(s.end)+'</td><td>'+s.status+'</td><td>'+cc+'</td><td>'+dd+'</td><td>'+(cc-dd)+'</td><td>'+(cc?Math.round(dd/cc*100):0)+'%</td></tr>';}).join('')+
+    '</table></div>'+
+
+    '<div class="rp-card"><h2>3 · Sprint in focus — '+esc(sp.name)+'</h2>'+
+    '<p class="rp-goal"><b>Sprint goal:</b> '+esc(sp.goal)+'</p>'+
+    '<p>'+fmtD(sp.start)+' → '+fmtD(sp.end)+' · status: '+sp.status+' · commitment: '+d+' / '+c+' pts ('+(c?Math.round(d/c*100):0)+'%)</p>'+
+    (stories.length
+      ? '<table class="rp-tb"><tr><th>ID</th><th>Story</th><th>Epic</th><th>Pts</th><th>Assignee</th><th>Status</th></tr>'+
+        stories.map(s=>'<tr><td>'+esc(s.id)+'</td><td>'+esc(s.title)+'</td><td>'+esc(epicById(s.epic).name)+'</td><td>'+s.points+'</td><td>'+esc(userById(s.assignee).name)+'</td><td>'+colName(s.status)+'</td></tr>').join('')+'</table>'
+      : '<p class="mut">No stories planned in this sprint.</p>')+
+    '<h3>Sprint burndown (ideal vs remaining)</h3><img class="rp-img" src="'+burnImg+'" alt="Sprint burndown chart">'+
+    '</div>'+
+
+    '<div class="rp-card"><h2>4 · Velocity across sprints</h2><img class="rp-img" src="'+velImg+'" alt="Velocity chart"></div>'+
+
+    '<div class="rp-card"><h2>5 · Ceremonies — '+esc(sp.name)+'</h2><table class="rp-tb">'+
+    '<tr><th>Day</th><th>Event</th><th>Notes</th></tr>'+cer+'</table></div>'+
+
+    '<div class="rp-card"><h2>6 · Definition of Done</h2><ul class="rp-ul">'+DoD.map(x=>'<li>'+x+'</li>').join('')+'</ul></div>'+
+
+    '<div class="rp-foot">Generated by ScrumForge v1.1 — Scrum applied to its own development · single-file app, no dependencies.</div>';
+}
+
+function printReport(){
+  const sel=$('#repSprint');
+  const n=sel?+sel.value:(activeSprint()||doneSprints().slice(-1)[0]||DB.sprints[0]).n;
+  $('#printRoot').innerHTML=buildReportHTML(n);
+  toast('Opening print dialog — choose Save as PDF','g');
+  setTimeout(()=>window.print(),150);
+}
+window.addEventListener('afterprint',()=>{ const r=$('#printRoot'); if(r) r.innerHTML=''; });
+
+/* =====================================================================
+   BOOT
+===================================================================== */
+
+function init(){
+  load();
+  buildNav();
+  renderAll();
+
+  $('#btnReset').onclick=()=>{ if(confirm('Reset all data back to the seeded demo dataset?')) resetDemo(); };
+  $('#modalRoot').addEventListener('click',e=>{ if(e.target.id==='modalRoot') closeModal(); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+
+  const steps=[
+    ['loading seed dataset…',18],['mounting views…',38],['computing burndown…',58],
+    ['crunching velocity…',76],['orchestrating scrum…',92],['ready',100]
+  ];
+  const log=$('#ldLog'), bar=$('#ldBar');
+  steps.forEach((s,i)=>setTimeout(()=>{
+    log.innerHTML+='<div class="ok">✓ '+s[0]+'</div>';
+    bar.style.width=s[1]+'%';
+    if(i===steps.length-1) setTimeout(()=>$('#loader').classList.add('done'),350);
+  },120+i*160));
+
+  window.addEventListener('resize',()=>{ if(VIEW==='dash'||VIEW==='reports') renderAll(); });
+}
+
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>

@@ -1,0 +1,1806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ScrumForge — Work Board</title>
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('sf.theme')||'light')}catch(e){}</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#f7f8fa; --pan:#ffffff; --pan2:#f8fafc;
+  --line:#e4e7ec; --line2:#cbd2dc;
+  --cy:#2563eb; --gr:#059669; --am:#d97706; --rd:#dc2626; --vi:#7c3aed; --bl:#0891b2;
+  --tx:#1f2937; --dim:#64748b;
+  --inp:#ffffff; --barbg:rgba(255,255,255,.92); --track:#e5e7eb; --mark:#eef2ff;
+  --hover:rgba(15,23,42,.04); --hairline:rgba(15,23,42,.07); --grid:rgba(15,23,42,.14);
+  --mono:ui-monospace,'Cascadia Mono',Consolas,monospace;
+}
+:root[data-theme=dark]{
+  --bg:#0f1115; --pan:#161a20; --pan2:#1a1f27;
+  --line:#262c36; --line2:#39424f;
+  --cy:#5b8af5; --gr:#2fb377; --am:#d99a3d; --rd:#e06c6c; --vi:#9a74e0; --bl:#2fb0c9;
+  --tx:#d6dbe3; --dim:#8b95a5;
+  --inp:#10141b; --barbg:rgba(15,17,21,.92); --track:#262c36; --mark:#1c2230;
+  --hover:rgba(255,255,255,.05); --hairline:rgba(255,255,255,.07); --grid:rgba(255,255,255,.13);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);
+  color:var(--tx);font:13px/1.5 'Segoe UI',Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:5px}
+::-webkit-scrollbar-track{background:transparent}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,select,textarea{font:inherit;color:var(--tx);background:var(--inp);border:1px solid var(--line);
+  border-radius:8px;padding:7px 10px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--line2);box-shadow:0 0 0 3px rgba(37,99,235,.08)}
+canvas.chart{width:100%;display:block}
+h3.sec{font-size:10px;letter-spacing:1.8px;color:var(--dim);text-transform:uppercase;margin:18px 0 9px;
+  display:flex;align-items:center;gap:8px}
+h3.sec::after{content:'';flex:1;height:1px;background:var(--line)}
+h3.sec:first-child{margin-top:2px}
+
+/* ---------- layout ---------- */
+#app{display:flex;min-height:100vh}
+#side{width:216px;position:fixed;top:0;bottom:0;left:0;background:var(--pan);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;z-index:40}
+#logo{padding:16px 16px 13px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center}
+#logo .mark{width:34px;height:34px;border-radius:9px;background:var(--mark);
+  border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:17px}
+#logo b{font-size:15px;letter-spacing:1px;display:block}
+#logo b i{color:var(--cy);font-style:normal}
+#logo small{font-size:9px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;display:block}
+#nav{flex:1;padding:10px 8px;overflow-y:auto}
+.navitem{width:100%;display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;color:var(--dim);
+  font-size:12.5px;margin-bottom:2px;border:1px solid transparent;text-align:left}
+.navitem:hover{color:var(--tx);background:var(--hover)}
+.navitem.on{color:var(--cy);background:var(--hover);border-color:var(--line2)}
+.navitem .ic{width:20px;text-align:center;font-size:14px}
+#sideFoot{padding:12px;border-top:1px solid var(--line)}
+#sprintChip{background:var(--pan2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+#sprintChip b{color:var(--cy);font-size:12px;display:block}
+#sprintChip .row{display:flex;justify-content:space-between;margin-top:3px}
+#btnReset{width:100%;margin-top:9px;padding:7px;border:1px solid rgba(220,38,38,.35);border-radius:8px;
+  color:var(--rd);font-size:11px;background:rgba(220,38,38,.06)}
+#btnReset:hover{background:rgba(220,38,38,.14)}
+#btnTheme{width:100%;margin-top:8px;padding:7px;border:1px solid var(--line);border-radius:8px;
+  color:var(--dim);font-size:11px;background:var(--pan2)}
+#btnTheme:hover{color:var(--tx);border-color:var(--line2)}
+
+#main{flex:1;margin-left:216px;padding:18px 22px 60px;min-width:0}
+#vhead{display:flex;align-items:flex-end;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+#vTitle{font-size:21px;font-weight:700;letter-spacing:.4px}
+#vSub{color:var(--dim);font-size:12px;margin-top:2px}
+#vActs{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.abtn{padding:7px 13px;border:1px solid var(--line);border-radius:9px;background:var(--pan2);color:var(--tx);
+  font-size:12px;display:inline-flex;align-items:center;gap:7px}
+.abtn:hover{border-color:var(--line2);background:var(--hover)}
+.abtn.pri{border-color:rgba(37,99,235,.5);color:var(--cy);background:rgba(37,99,235,.1)}
+.abtn.dng{border-color:rgba(220,38,38,.4);color:var(--rd)}
+.abtn:disabled{opacity:.4;cursor:not-allowed}
+.pane{display:none;animation:pin .25s}
+.pane.on{display:block}
+@keyframes pin{from{opacity:0;transform:translateY(6px)}}
+
+/* ---------- cards & kpis ---------- */
+.card{background:var(--pan);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:12px}
+.card .ct{font-size:10px;color:var(--dim);letter-spacing:1.4px;text-transform:uppercase;margin-bottom:9px;
+  display:flex;justify-content:space-between;align-items:center;gap:10px}
+.card .ct b{color:var(--tx);font-family:var(--mono);font-size:11px;font-weight:600}
+.kgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi{background:var(--pan);border:1px solid var(--line);border-radius:12px;padding:11px 13px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--cy);opacity:.75}
+.kpi.g::before{background:var(--gr)}.kpi.a::before{background:var(--am)}.kpi.r::before{background:var(--rd)}.kpi.v::before{background:var(--vi)}.kpi.b::before{background:var(--bl)}
+.kpi .v{font-family:var(--mono);font-size:22px;font-weight:600}
+.kpi .v small{font-size:10px;color:var(--dim)}
+.kpi .l{font-size:9.5px;color:var(--dim);letter-spacing:.8px;text-transform:uppercase;margin-top:2px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:1100px){.g2,.g3{grid-template-columns:1fr}}
+
+/* ---------- tags / chips / avatars ---------- */
+.tag{display:inline-block;padding:2px 8px;border-radius:9px;font-size:9.5px;font-family:var(--mono);letter-spacing:.3px}
+.tag.c{background:rgba(37,99,235,.12);color:var(--cy)}
+.tag.g{background:rgba(5,150,105,.12);color:var(--gr)}
+.tag.a{background:rgba(217,119,6,.12);color:var(--am)}
+.tag.r{background:rgba(220,38,38,.12);color:var(--rd)}
+.tag.v{background:rgba(124,58,237,.12);color:var(--vi)}
+.tag.b{background:rgba(8,145,178,.12);color:var(--bl)}
+.tag.d{background:rgba(100,116,139,.12);color:var(--dim)}
+.tag.p{background:rgba(219,39,119,.12);color:#db2777}
+.lbltag{display:inline-block;padding:2px 8px;border-radius:9px;font-size:9px;font-family:var(--mono);border:1px solid var(--line);margin-right:4px}
+.chipchk{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid var(--line);border-radius:14px;font-size:11px;cursor:pointer;user-select:none}
+.chipchk input{width:auto;margin:0}
+.chipchk:has(input:checked){border-color:var(--cy);color:var(--cy);background:rgba(37,99,235,.08)}
+#sideResize{position:absolute;top:0;bottom:0;right:-3px;width:7px;cursor:col-resize;z-index:60}
+#sideResize:hover,#sideResize.drag{background:rgba(37,99,235,.25)}
+.ava{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:700;color:#ffffff;font-family:var(--mono);flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
+.dotp{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+
+/* ---------- tables ---------- */
+table.tb{width:100%;border-collapse:collapse;font-size:11.5px}
+.tb th{text-align:left;color:var(--dim);font-weight:500;font-size:9px;letter-spacing:1.1px;text-transform:uppercase;
+  padding:5px 6px;border-bottom:1px solid var(--line)}
+.tb td{padding:7px 6px;border-bottom:1px solid var(--hairline);font-family:var(--mono);font-size:10.5px;vertical-align:middle}
+.tb td.t{font-family:inherit;font-size:12px}
+.tb tr:hover td{background:var(--hover)}
+.tb .rt{text-align:right}
+
+/* ---------- backlog ---------- */
+#bkTools{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+#bkTools input[type=search]{flex:1;min-width:180px}
+#bkTools select{max-width:170px}
+.epic{margin-bottom:12px}
+.epicHead{display:flex;align-items:center;gap:9px;padding:9px 12px;background:var(--pan2);
+  border:1px solid var(--line);border-radius:10px 10px 0 0;font-size:12px;flex-wrap:wrap}
+.epicHead b{letter-spacing:.4px}
+.epicHead .meta{color:var(--dim);font-family:var(--mono);font-size:10px}
+.epicHead .bar{flex:1;height:4px;background:var(--track);border-radius:2px;overflow:hidden;min-width:90px;max-width:180px}
+.epicHead .bar i{display:block;height:100%;background:var(--cy)}
+.storyRow{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--pan);
+  border:1px solid var(--line);border-top:none}
+.storyRow:last-child{border-radius:0 0 10px 10px}
+.storyRow:hover{background:var(--hover)}
+.storyRow .sid{font-family:var(--mono);font-size:10px;color:var(--dim);width:58px;flex:none}
+.storyRow .st{flex:1;min-width:0;font-size:12.5px;cursor:pointer}
+.storyRow .st:hover{color:var(--cy)}
+.storyRow .pts{font-family:var(--mono);font-size:11px;color:var(--vi);background:rgba(124,58,237,.12);
+  padding:2px 8px;border-radius:9px;flex:none}
+.storyRow .mv{display:flex;gap:2px}
+.mbtn{padding:3px 7px;border:1px solid var(--line);border-radius:6px;color:var(--dim);font-size:10px}
+.mbtn:hover{color:var(--cy);border-color:var(--line2)}
+
+/* ---------- board ---------- */
+#board{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:start}
+@media(max-width:1250px){#board{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){#board{grid-template-columns:1fr 1fr}}
+.bcol{background:var(--pan);border:1px solid var(--line);border-radius:12px;min-height:340px;display:flex;flex-direction:column;transition:border-color .15s, box-shadow .15s}
+.bcol.over{border-color:var(--cy);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.bcolH{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+.bcolH .nm{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;font-weight:600}
+.bcolH .cnt{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--dim)}
+.bcolH .wip{font-family:var(--mono);font-size:9px;padding:1px 7px;border-radius:8px;background:rgba(100,116,139,.15);color:var(--dim)}
+.bcolH .wip.hot{background:rgba(220,38,38,.18);color:var(--rd)}
+.bcolBody{padding:9px;display:flex;flex-direction:column;gap:8px;flex:1;min-height:120px}
+.bcard{background:var(--pan2);border:1px solid var(--line);border-radius:10px;padding:9px 10px;cursor:grab;transition:transform .12s,border-color .12s}
+.bcard:hover{border-color:var(--line2);transform:translateY(-1px)}
+.bcard.dragging{opacity:.45;cursor:grabbing}
+.bcard .bid{font-family:var(--mono);font-size:9px;color:var(--dim);display:flex;justify-content:space-between;margin-bottom:4px}
+.bcard .bt{font-size:12px;line-height:1.35;margin-bottom:8px;cursor:pointer}
+.bcard .bt:hover{color:var(--cy)}
+.bcard .bmeta{display:flex;align-items:center;gap:7px}
+.bcard .pts{font-family:var(--mono);font-size:10px;color:var(--vi);background:rgba(124,58,237,.12);padding:1px 7px;border-radius:8px}
+.bcard .ep{font-family:var(--mono);font-size:9px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bcard .ava{margin-left:auto;width:20px;height:20px;font-size:8px}
+.bcolAdd{padding:8px;color:var(--dim);font-size:11px;border-top:1px dashed var(--line);text-align:center}
+.bcolAdd:hover{color:var(--cy)}
+
+/* ---------- sprints ---------- */
+.spGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.spCard{background:var(--pan);border:1px solid var(--line);border-radius:12px;padding:13px 15px;position:relative;overflow:hidden}
+.spCard.active{border-color:rgba(5,150,105,.5)}
+.spCard.planned{border-style:dashed}
+.spTop{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px}
+.spName{font-weight:700;font-size:14px}
+.spGoal{color:var(--dim);font-size:11.5px;margin-bottom:10px;min-height:32px}
+.spMeta{display:flex;gap:14px;font-family:var(--mono);font-size:10px;color:var(--dim);margin-bottom:9px;flex-wrap:wrap}
+.pbar{height:5px;background:var(--track);border-radius:3px;overflow:hidden;margin-top:4px}
+.pbar i{display:block;height:100%;background:var(--cy);transition:width .5s}
+.spFoot{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+.spFoot .abtn{padding:5px 10px;font-size:11px}
+
+/* ---------- team ---------- */
+.tGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.tCard{background:var(--pan);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.tTop{display:flex;gap:11px;align-items:center}
+.tAva{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:var(--mono);font-size:13px;color:#ffffff;flex:none}
+.tName{font-weight:700;font-size:13.5px}
+.tRole{font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
+.wl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chk{display:flex;gap:8px;align-items:flex-start;padding:5px 0;font-size:12px}
+.chk .bx{width:15px;height:15px;border-radius:4px;border:1px solid var(--line2);flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--gr)}
+.chk.done .bx{background:rgba(5,150,105,.15);border-color:var(--gr)}
+
+/* ---------- timeline (about) ---------- */
+.tl{position:relative;padding-left:26px}
+.tl::before{content:'';position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:var(--line2)}
+.tlItem{position:relative;padding:0 0 16px 8px}
+.tlItem::before{content:'';position:absolute;left:-24px;top:4px;width:12px;height:12px;border-radius:50%;
+  background:var(--bg);border:2px solid var(--cy)}
+.tlItem.past::before{background:var(--cy)}
+.tlItem .tlD{font-family:var(--mono);font-size:9.5px;color:var(--dim)}
+.tlItem .tlT{font-weight:700;font-size:13px;margin:1px 0}
+.tlItem .tlM{color:var(--dim);font-size:11.5px}
+
+/* ---------- modal ---------- */
+#modalRoot{position:fixed;inset:0;z-index:80;display:none;align-items:flex-start;justify-content:center;
+  background:rgba(17,24,39,.45);overflow-y:auto;padding:60px 16px}
+#modalRoot.on{display:flex}
+.modal{background:var(--pan);border:1px solid var(--line2);border-radius:14px;width:560px;max-width:100%;
+  box-shadow:0 20px 70px rgba(0,0,0,.14);animation:mup .22s}
+@keyframes mup{from{opacity:0;transform:translateY(14px)}}
+.mHead{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.mHead b{font-size:15px}
+.mHead .x{margin-left:auto;color:var(--dim);font-size:16px;padding:2px 8px;border-radius:7px}
+.mHead .x:hover{color:var(--rd);background:rgba(220,38,38,.1)}
+.mBody{padding:16px 18px;max-height:65vh;overflow-y:auto}
+.mFoot{padding:13px 18px;border-top:1px solid var(--line);display:flex;gap:9px;justify-content:flex-end}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.frow.one{grid-template-columns:1fr}
+.fld label{display:block;font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
+.fld input,.fld select,.fld textarea{width:100%}
+.fld textarea{min-height:74px;resize:vertical;font-family:var(--mono);font-size:11.5px}
+
+/* ---------- print / PDF sprint report ---------- */
+#printRoot{display:none}
+@media print{
+  @page{size:A4;margin:12mm}
+  body{background:#fff!important;color:#111}
+  #app,#toasts,#loader,#modalRoot{display:none!important}
+  #printRoot{display:block;font:12px/1.55 Georgia,'Times New Roman',serif;color:#111}
+  #printRoot h1{font-size:20px;margin:0 0 2px}
+  .rp-head{display:flex;gap:12px;align-items:center;border-bottom:3px solid #111;padding-bottom:8px;margin-bottom:14px}
+  .rp-brand{font:700 13px/1 Verdana,sans-serif;letter-spacing:2px;border:2px solid #111;padding:6px 8px;border-radius:6px;white-space:nowrap}
+  .rp-sub{color:#444;font-size:11px}
+  .rp-card{margin-bottom:16px;page-break-inside:avoid}
+  .rp-card h2{font-size:13px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #999;padding-bottom:3px;margin:0 0 8px;font-family:Verdana,sans-serif}
+  .rp-card h3{font-size:11px;margin:10px 0 4px;font-family:Verdana,sans-serif}
+  table.rp-tb{width:100%;border-collapse:collapse;font-size:10.5px;font-family:Verdana,sans-serif}
+  table.rp-tb th{background:#eee;border:1px solid #999;padding:4px 6px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.5px}
+  table.rp-tb td{border:1px solid #aaa;padding:4px 6px}
+  table.rp-kv{width:100%;border-collapse:collapse;font-size:11px}
+  table.rp-kv th{width:150px;text-align:left;padding:3px 6px;background:#f2f2f2;border:1px solid #aaa;vertical-align:top;font-size:10px;text-transform:uppercase}
+  table.rp-kv td{border:1px solid #aaa;padding:3px 6px}
+  .rp-goal{margin:0 0 6px}
+  .rp-img{width:100%;max-width:720px;border:1px solid #bbb;border-radius:6px;margin-top:4px}
+  .rp-ul{margin:0;padding-left:18px}
+  .rp-ul li{margin:2px 0}
+  .mut{color:#666;font-style:italic}
+  .rp-foot{margin-top:18px;border-top:1px solid #999;padding-top:6px;color:#555;font-size:10px}
+}
+
+/* ---------- top bar (project & account) ---------- */
+#wsBar{position:fixed;top:0;left:0;right:0;height:44px;display:flex;align-items:center;gap:10px;
+  padding:0 14px;background:var(--barbg);
+  border-bottom:1px solid var(--line);backdrop-filter:blur(8px);z-index:45}
+#wsBar .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;letter-spacing:1px;white-space:nowrap}
+#wsBar .brand i{color:var(--cy);font-style:normal}
+#wsSel,#prjSel{max-width:190px;padding:4px 8px;font-size:11.5px}
+#wbMid{display:flex;gap:8px;align-items:center;flex:1;min-width:0}
+.netbadge{font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:9px;border:1px solid var(--line);color:var(--dim);white-space:nowrap}
+.netbadge.cloud{color:var(--gr);border-color:rgba(5,150,105,.4);background:rgba(5,150,105,.08)}
+.netbadge.local{color:var(--am);border-color:rgba(217,119,6,.4);background:rgba(217,119,6,.07)}
+#wsBar .grow{flex:1}
+.acct{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.acct .who{font-size:11px;color:var(--dim)}
+#app{padding-top:44px}
+#side{top:44px}
+
+/* ---------- auth screen ---------- */
+#authScreen{position:fixed;inset:0;z-index:70;background:var(--bg);
+  display:none;align-items:center;justify-content:center;padding:20px}
+#authScreen.on{display:flex}
+.authBox{width:840px;max-width:100%;display:grid;grid-template-columns:1.05fr 1fr;
+  background:var(--pan2);border:1px solid var(--line2);border-radius:16px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.12)}
+.authL{padding:30px 28px;border-right:1px solid var(--line)}
+.authL h1{font-size:22px;letter-spacing:1px}
+.authL h1 b{color:var(--cy)}
+.authL p{color:var(--dim);font-size:12px;margin-top:12px;line-height:1.6}
+.authL .tag{margin:10px 6px 0 0}
+.authR{padding:24px 22px;display:flex;flex-direction:column;gap:9px;max-height:80vh;overflow-y:auto}
+.authR h3{font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:var(--dim)}
+.demoUser{display:flex;align-items:center;gap:11px;background:var(--pan);border:1px solid var(--line);
+  border-radius:11px;padding:9px 12px;cursor:pointer;text-align:left;width:100%}
+.demoUser:hover{border-color:var(--line2);background:var(--hover)}
+.demoUser small{display:block;color:var(--dim);font-size:10px}
+.authEmail{display:flex;gap:8px}
+.authEmail input{flex:1;min-width:0}
+@media(max-width:840px){.authBox{grid-template-columns:1fr}.authL{border-right:none;border-bottom:1px solid var(--line)}}
+
+/* ---------- hierarchy tree ---------- */
+.treeRow{display:flex;align-items:center;gap:9px;padding:7px 12px;border-bottom:1px solid var(--hairline)}
+.treeRow:hover{background:var(--hover)}
+.treeRow .tw{width:14px;text-align:center;color:var(--dim);cursor:pointer;font-size:10px;flex:none}
+.treeRow .tt{flex:1;min-width:0;font-size:12.5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.treeRow .tt:hover{color:var(--cy)}
+.treeRow .kids{font-family:var(--mono);font-size:9.5px;color:var(--dim);white-space:nowrap}
+.iconE{font-size:9px;padding:2px 7px;flex:none}
+.ibtn{padding:3px 7px;border:1px solid var(--line);border-radius:6px;color:var(--dim);font-size:10px}
+.ibtn:hover{color:var(--cy);border-color:var(--line2)}
+
+/* ---------- item detail: comments & activity ---------- */
+.cmt{display:flex;gap:9px;padding:8px 0;border-bottom:1px solid var(--hairline)}
+.cmt .ava{margin-top:2px}
+.cmt .cb{font-size:12px}
+.cmt .cm{color:var(--dim);font-size:9.5px;font-family:var(--mono)}
+.actRow{display:flex;gap:8px;font-size:11.5px;padding:4px 0;color:var(--dim);align-items:center}
+.actRow b{color:var(--tx)}
+
+/* ---------- toasts ---------- */
+#toasts{position:fixed;top:16px;right:16px;z-index:90;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.toast{background:var(--pan);border:1px solid var(--line2);border-left:3px solid var(--cy);border-radius:9px;
+  padding:9px 15px;font-size:12px;animation:tin .25s;box-shadow:0 8px 30px rgba(0,0,0,.12);max-width:380px}
+.toast.g{border-left-color:var(--gr)} .toast.a{border-left-color:var(--am)} .toast.r{border-left-color:var(--rd)}
+@keyframes tin{from{opacity:0;transform:translateX(20px)}}
+
+/* ---------- loader ---------- */
+#loader{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;transition:opacity .6s}
+#loader.done{opacity:0;pointer-events:none}
+#loader .lg{font-size:24px;letter-spacing:4px;font-weight:700}
+#loader .lg b{color:var(--cy)}
+#loader .sb{font-size:10px;color:var(--dim);letter-spacing:3px;text-transform:uppercase}
+#ldBarW{width:320px;height:3px;background:var(--track);border-radius:2px;overflow:hidden}
+#ldBar{height:100%;width:0;background:var(--cy);transition:width .3s}
+#ldLog{width:360px;height:40px;overflow:hidden;font-family:var(--mono);font-size:10px;color:var(--dim);line-height:1.6}
+#ldLog .ok{color:var(--gr)}
+
+@media(max-width:900px){
+  #side{width:58px}
+  #side .lbl,#logo div:last-child,#sprintChip,#btnReset,#btnTheme{display:none}
+  #main{margin-left:58px;padding:14px}
+  #logo{justify-content:center;padding:14px 8px}
+  .navitem{justify-content:center}
+}
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="lg">SCRUM<b>FORGE</b></div>
+  <div class="sb">Work Board</div>
+  <div id="ldBarW"><div id="ldBar"></div></div>
+  <div id="ldLog"></div>
+</div>
+
+<div id="app">
+  <div id="authScreen"></div>
+  <div id="wsBar" style="display:none"></div>    <aside id="side">
+      <div id="sideResize" title="Drag to resize"></div>
+      <div id="logo">
+      <div class="mark">⚒</div>
+      <div><b>SCRUM<i>FORGE</i></b><small>Work Board</small></div>
+    </div>
+    <nav id="nav"></nav>
+    <div id="sideFoot">
+      <div id="sprintChip"></div>
+      <button id="btnTheme" title="Switch light / dark">🌙 Dark mode</button>
+      <button id="btnReset" title="Erase everything stored in this browser">⚠ Delete all data</button>
+    </div>
+  </aside>
+
+  <main id="main">
+    <div id="vhead">
+      <div><div id="vTitle"></div><div id="vSub"></div></div>
+      <div id="vActs"></div>
+    </div>
+
+    <section class="pane on" id="v-dash"></section>
+    <section class="pane" id="v-backlog"></section>
+    <section class="pane" id="v-board"></section>
+    <section class="pane" id="v-sprints"></section>
+    <section class="pane" id="v-reports"></section>
+    <section class="pane" id="v-team"></section>
+    <section class="pane" id="v-about"></section>
+    <section class="pane" id="v-tree"></section>
+  </main>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toasts"></div>
+<div id="printRoot"></div>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   ScrumForge — personal work board.
+   No demo data: the board starts empty and holds your real work.
+   State lives in localStorage; optionally in Supabase when keys are set.
+===================================================================== */
+
+/* =====================================================================
+   STATE
+===================================================================== */
+
+let DB=null;          /* dataset of the active project */
+let PRJDATA={};       /* per-project datasets: {projectId: dataset} */
+function storeKey(){ return 'sf.board.v1'; }
+
+/* ---- project template: the real team + the real build backlog ---- */
+function freshTeam(){
+  return [
+    {id:'T1', name:'Asiru A. Yakubu',       role:'Product Owner',     capacity:20, color:'#2563eb'},
+    {id:'T2', name:'Lekeanyi Kerring',      role:'Scrum Master',      capacity:15, color:'#7c3aed'},
+    {id:'T3', name:'Hassan Tita',           role:'Backend Developer', capacity:30, color:'#0891b2'},
+    {id:'T4', name:'Ngwane Miguel',         role:'Frontend Developer',capacity:30, color:'#d97706'},
+    {id:'T5', name:'Awa Beri Fonkam',       role:'UI/UX Designer',    capacity:25, color:'#db2777'},
+    {id:'T6', name:'Arrey Bissong Gerald',  role:'QA Engineer',       capacity:25, color:'#059669'}
+  ];
+}
+function freshDataset(){
+  const S=[];
+  const add=o=>S.push(Object.assign({points:3, epic:'E1', assignee:'T3', status:'backlog', sprint:null,
+    labels:['feature'], criteria:'', priority:'S', type:'story', parent:null, comments:[]},o));
+  /* Sprint 1 — active */
+  add({id:'SF-101', title:'Email + password sign-up & sign-in', points:8, epic:'E1', assignee:'T3', sprint:1, status:'done',    labels:['feature','backend'], priority:'M', criteria:'Users register and log in\nSessions persist across reloads'});
+  add({id:'SF-102', title:'Database schema + RLS policies for workspaces & projects', points:8, epic:'E1', assignee:'T3', sprint:null, status:'backlog', labels:['backend','infra'], priority:'M', criteria:'Tables created in Supabase\nRLS blocks non-members'});
+  add({id:'SF-103', title:'Project workspace switcher', points:3, epic:'E2', assignee:'T4', sprint:1, status:'done',    labels:['frontend'], priority:'S', criteria:'Switch projects without reload\nActive project persists'});
+  add({id:'SF-104', title:'Drag & drop sprint board with WIP limit', points:8, epic:'E3', assignee:'T4', sprint:null, status:'backlog', labels:['frontend','feature'], priority:'M', criteria:'Cards move between columns\nWIP badge turns red over limit'});
+  add({id:'SF-105', title:'Design system: colors, typography, components', points:5, epic:'E4', assignee:'T5', sprint:1, status:'done',    labels:['design'], priority:'M', criteria:'Token sheet agreed\nButtons/inputs/cards standardized'});
+  add({id:'SF-106', title:'Light/dark theme with persistence', points:3, epic:'E4', assignee:'T5', sprint:null, status:'backlog', labels:['design','frontend'], priority:'S', criteria:'Toggle survives reload\nCharts follow theme'});
+  add({id:'SF-107', title:'Sprint planning: duration presets & capacity check', points:5, epic:'E2', assignee:'T2', sprint:null, status:'backlog', labels:['feature'], priority:'M', criteria:'1-4 week presets\nWarn when commitment exceeds capacity'});
+  add({id:'SF-108', title:'Test plan & smoke-test checklist for release', points:3, epic:'E5', assignee:'T6', sprint:null, status:'backlog', labels:['qa'], priority:'M', criteria:'Checklist per view\nBugs filed as board items'});
+  /* Sprint 2 — planned */
+  add({id:'SF-110', title:'Team invitations by email with roles', points:8, epic:'E1', assignee:'T3', sprint:2, status:'done', labels:['backend','feature'], priority:'M', criteria:'Invite via email\nRole picker enforced server-side'});
+  add({id:'SF-111', title:'Comments & @mentions on items', points:8, epic:'E3', assignee:'T4', sprint:null, status:'backlog', labels:['frontend','feature'], priority:'S', criteria:'Threaded comments\n@mention highlights'});
+  add({id:'SF-112', title:'Empty states & onboarding polish', points:3, epic:'E4', assignee:'T5', sprint:null, status:'backlog', labels:['design'], priority:'C', criteria:'Every view has a helpful empty state'});
+  add({id:'SF-113', title:'Regression test suite + pre-release checklist', points:5, epic:'E5', assignee:'T6', sprint:2, status:'done', labels:['qa','infra'], priority:'M', criteria:'Suite runs before each deploy\nZero known regressions'});
+  add({id:'SF-114', title:'Burndown & velocity charts', points:8, epic:'E2', assignee:'T2', sprint:2, status:'done', labels:['feature'], priority:'M', criteria:'Ideal vs actual burndown\nVelocity per completed sprint'});
+  add({id:'SF-115', title:'PDF sprint report export', points:5, epic:'E5', assignee:'T4', sprint:null, status:'backlog', labels:['feature','frontend'], priority:'S', criteria:'Printable A4 report\nIncludes charts and summary'});
+  /* Backlog */
+  add({id:'SF-109', title:'Resize-friendly responsive layout', points:3, epic:'E4', assignee:'T5', labels:['design','frontend'], priority:'C', criteria:'Sidebar resizable\nUsable at 1024px'});
+  add({id:'SF-116', title:'Realtime sync across devices', points:13, epic:'E3', assignee:'T3', labels:['backend','feature'], priority:'M', criteria:'Changes appear on second device within 1s'});
+  add({id:'SF-117', title:'Notification centre', points:8, epic:'E3', assignee:'T4', labels:['feature'], priority:'C', criteria:'In-app notifications for mentions & moves'});
+  add({id:'SF-118', title:'Accessibility audit', points:5, epic:'E5', assignee:'T6', labels:['qa','design'], priority:'S', criteria:'Keyboard-navigable\nContrast passes WCAG AA'});
+  add({id:'SF-119', title:'User documentation & demo script', points:3, epic:'E5', assignee:'T2', labels:['docs'], priority:'S', criteria:'Setup guide + presentation walkthrough'});
+  add({id:'SF-120', title:'Roadmap view for stakeholders', points:5, epic:'E2', assignee:'T2', labels:['feature'], priority:'C', criteria:'Release buckets with estimates'});
+  add({id:'SF-121', title:'Mobile-friendly layout pass', points:5, epic:'E4', assignee:'T5', labels:['design','frontend'], priority:'C', criteria:'Board usable on tablet'});
+  add({id:'SF-122', title:'Deployment pipeline to static hosting', points:3, epic:'E5', assignee:'T3', labels:['infra'], priority:'M', criteria:'One-click deploy\nLive URL monitored'});
+  add({id:'SF-123', title:'Load testing with 10k items', points:8, epic:'E5', assignee:'T6', labels:['qa'], priority:'W', criteria:'Board stays responsive with 10k stories'});
+  add({id:'SF-124', title:'Public landing page', points:5, epic:'E4', assignee:'T4', labels:['frontend','design'], priority:'W', criteria:'Explains the product\nLinks to the app'});
+  return {
+    version:1, pinDay:todayISO(),
+    team:freshTeam(),
+    stories:S,
+    sprints:[
+      {n:1, name:'Sprint 1 · Foundation', goal:'A working multi-user platform: auth, board, design system', start:'2026-09-14', end:'2026-09-18', status:'done',    committed:43, completed:16},
+      {n:2, name:'Sprint 2 · Collaboration', goal:'Invites, comments, reports — make it a team tool', start:'2026-09-21', end:'2026-09-24', status:'done', committed:37, completed:21}
+    ],
+    activity:[
+      {kind:'setup', detail:'Project seeded with the ScrumForge team and build backlog', who:'system', when:new Date().toLocaleString()},
+      {kind:'sprint', detail:'Sprint 1 · Foundation closed Sep 18 — 16 of 43 pts delivered, unfinished items returned to the backlog', who:'Lekeanyi Kerring', when:new Date().toLocaleString()},
+      {kind:'sprint', detail:'Sprint 2 · Collaboration closed Sep 24 — 21 of 37 pts delivered; comments, report export and empty states spill to the backlog', who:'Lekeanyi Kerring', when:new Date().toLocaleString()}
+    ]
+  };
+}
+function loadAll(){
+  try{ const raw=localStorage.getItem(storeKey()); if(raw){ PRJDATA=JSON.parse(raw); } }catch(e){}
+  if(!PRJDATA['main']) PRJDATA['main']=freshDataset();
+  DB=PRJDATA[PRJID];
+  if(!DB){ DB=PRJDATA[PRJID]=freshDataset(); }
+  if(!DB.team||!DB.team.length) DB.team=freshTeam();
+  DB.pinDay=todayISO();
+  if(SB) cloudLoad();
+}
+function save(){ try{ localStorage.setItem(storeKey(), JSON.stringify(PRJDATA)); }catch(e){} if(SB) cloudSave(); }
+function wipeAll(){
+  if(!confirm('Delete ALL data in this browser? Projects, items, sprints and history are erased permanently.')) return;
+  try{ localStorage.removeItem(storeKey()); localStorage.removeItem('sf.prj'); localStorage.removeItem('sf.onboarded'); }catch(e){}
+  location.reload();
+}
+
+/* =====================================================================
+   PLATFORM LAYER — roles, auth, optional Supabase backend
+===================================================================== */
+let ME=null;   /* current user: {id,name,initials,color,role,email,cloud?} */
+let SB=null;   /* supabase-js client when configured */
+
+const SUPABASE_URL='https://kvrdnncnpwwskbsnimzb.supabase.co';   /* Supabase Project URL */
+const SUPABASE_ANON='sb_publishable_o_6wKgdDHHQH15Nt-K_TRA_qN3dwFjY';  /* publishable (anon) key — public by design; RLS protects the data */
+
+const ROLE_PERMS={
+  owner:['edit','admin'], admin:['edit','admin'], scrum_master:['edit'],
+  product_owner:['edit'], developer:['edit'], viewer:[]
+};
+function can(p){ return !!ME && (ROLE_PERMS[ME.role]||[]).includes(p); }
+function roleLabel(r){ return ({owner:'Owner',admin:'Admin',scrum_master:'Scrum Master',product_owner:'Product Owner',developer:'Developer',viewer:'Viewer'})[r]||r; }
+
+function loadSupabase(){
+  if(!SUPABASE_URL||!SUPABASE_ANON) return;
+  if(window.supabase){ initSupabase(); return; }   /* CDN already loaded via <head> tag */
+  const s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+  s.onload=initSupabase;
+  s.onerror=()=>console.warn('Supabase CDN failed to load — check internet connection');
+  document.head.appendChild(s);
+}
+function initSupabase(){
+  try{
+    SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
+    SB.auth.getSession().then(({data})=>{ if(data&&data.session&&data.session.user&&(!ME||!ME.cloud||!ME.ws)) cloudAdopt(data.session.user); });
+    SB.auth.onAuthStateChange((evt,session)=>{
+      if(evt==='SIGNED_IN'&&session&&session.user&&(!ME||!ME.cloud||ME.email!==session.user.email)) cloudAdopt(session.user);
+      if(evt==='SIGNED_OUT'){ ME=null; location.reload(); }
+    });
+  }catch(e){ console.warn('Supabase init failed',e); }
+}
+function cloudAdopt(user){
+  const meta=user.user_metadata||{};
+  const localName=(function(){ try{ const m=JSON.parse(localStorage.getItem('sf.me.v1')||'null'); return m&&m.name&&user.email&&m.email===user.email?m.name:null; }catch(e){ return null; } })();
+  ME={ id:user.id, email:user.email, name:meta.name||localName||user.email.split('@')[0],
+       initials:String(meta.name||localName||user.email).slice(0,2).toUpperCase(),
+       color:'#2563eb', role:meta.role||'developer', cloud:true };
+  loadAll(); bootAsUser(); renderAuthScreen();
+  toast('Signed in as '+ME.name+' ('+roleLabel(ME.role)+')','g');
+  bootstrapCloud();
+}
+/* First cloud sign-in: ensure a workspace exists (creator becomes owner),
+   list its projects (creating one from any local data on first run), then
+   point the app at real UUID project ids so cloudSave/cloudLoad work. */
+async function bootstrapCloud(){
+  if(!SB||!ME) return;
+  try{
+    /* Preferred path: server-side bootstrap RPC (see supabase-bootstrap.sql).
+       Creates workspace + owner membership + first project atomically, immune
+       to client-side RLS ordering. Falls back to raw inserts below if the
+       function is not deployed yet. */
+    const boot=await SB.rpc('create_my_workspace',{p_name:(ME.name||'My')+' workspace',p_project:PRJ().name});
+    if(!boot.error&&boot.data&&boot.data.workspace_id){
+      ME.ws=boot.data.workspace_id;
+      try{
+        const rq=await SB.from('workspace_members').select('role').eq('workspace_id',ME.ws).eq('user_id',ME.id).maybeSingle();
+        if(rq.data&&rq.data.role) ME.role=rq.data.role;   /* real workspace role, not the signup default */
+      }catch(e){}
+      const pq=await SB.from('projects').select('id,name,key,template,color,description').eq('workspace_id',ME.ws).order('created_at');
+      let rows=(pq.data&&pq.data.length)?pq.data:[];
+      if(!rows.length){
+        const seed=PRJDATA['main']||freshDataset();
+        const nid=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('prj-'+Date.now());
+        const pin=await SB.from('projects').insert({id:nid,workspace_id:ME.ws,name:PRJ().name,key:PRJ().key,
+          description:PRJ().desc,template:PRJ().template,color:PRJ().color,data:seed,updated_by:ME.id})
+          .select('id,name,key,template,color,description').single();
+        if(pin.error){ console.warn('project create:',pin.error.message); return; }
+        rows=[pin.data];
+      }
+      PROJECTS.length=0;
+      rows.forEach(r=>PROJECTS.push({id:r.id,name:r.name,key:r.key||'MW',template:r.template||'scrum',icon:'🗂',color:r.color||'#2563eb',desc:r.description||''}));
+      let saved=null; try{ saved=localStorage.getItem('sf.prj'); }catch(e){}
+      PRJID=PROJECTS.find(p=>p.id===saved)?saved:PROJECTS[0].id;
+      const localData=PRJDATA['main'];
+      if(localData){ PRJDATA[PRJID]=localData; delete PRJDATA['main']; }
+      else if(!PRJDATA[PRJID]) PRJDATA[PRJID]=freshDataset();
+      try{ localStorage.setItem('sf.prj',PRJID); }catch(e){}
+      DB=PRJDATA[PRJID];
+      await cloudLoad();
+      DB=PRJDATA[PRJID]||freshDataset();
+      save(); renderAll();
+      if(boot.data.created!==false&&PROJECTS.length===1) toast('Workspace created — board uploaded to the cloud','g');
+      return;
+    }
+    if(boot.error&&!/Could not find the function|schema cache/i.test(boot.error.message||'')){
+      console.warn('bootstrap RPC:',boot.error.message);
+    }
+    let ws=null;
+    const wq=await SB.from('workspaces').select('id,name').limit(1);
+    if(wq.data&&wq.data[0]) ws=wq.data[0];
+    if(!ws){
+      const ins=await SB.from('workspaces').insert({name:(ME.name||'My')+' workspace',created_by:ME.id}).select('id,name').single();
+      if(ins.error){ console.warn('workspace create:',ins.error.message); return; }
+      ws=ins.data;
+      const mem=await SB.from('workspace_members').insert({workspace_id:ws.id,user_id:ME.id,role:'owner'});
+      if(mem.error) console.warn('membership:',mem.error.message);
+    }
+    ME.ws=ws.id;
+    const pq=await SB.from('projects').select('id,name,key,template,color,description').eq('workspace_id',ws.id).order('created_at');
+    if(!pq.data||!pq.data.length){
+      const seed=PRJDATA['main']||freshDataset();
+      const nid=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('prj-'+Date.now());
+      const pin=await SB.from('projects').insert({id:nid,workspace_id:ws.id,name:PRJ().name,key:PRJ().key,
+        description:PRJ().desc,template:PRJ().template,color:PRJ().color,data:seed,updated_by:ME.id})
+        .select('id,name,key,template,color,description').single();
+      if(pin.error){ console.warn('project create:',pin.error.message); return; }
+      pq.data=[pin.data];
+    }
+    PROJECTS.length=0;
+    pq.data.forEach(r=>PROJECTS.push({id:r.id,name:r.name,key:r.key||'MW',template:r.template||'scrum',icon:'🗂',color:r.color||'#2563eb',desc:r.description||''}));
+    let saved=null; try{ saved=localStorage.getItem('sf.prj'); }catch(e){}
+    PRJID=PROJECTS.find(p=>p.id===saved)?saved:PROJECTS[0].id;
+    if(!PRJDATA[PRJID]) PRJDATA[PRJID]=freshDataset();
+    await cloudLoad();
+    DB=PRJDATA[PRJID]||freshDataset();
+    save(); renderAll();
+  }catch(e){ console.warn('bootstrapCloud:',e); }
+}
+async function cloudSignUp(email,pw,name){
+  const {error}=await SB.auth.signUp({email,password:pw,options:{data:{name:name,role:'owner'}}});
+  if(error){ toast(error.message,'r'); return; }
+  toast('Account created — confirm via email, then sign in','g');
+}
+async function cloudSignIn(email,pw){
+  const {error}=await SB.auth.signInWithPassword({email,password:pw});
+  if(error) toast(error.message,'r');
+}
+function cloudSave(){
+  if(!SB||!DB||!ME||!ME.cloud||!ME.ws) return;
+  const prj=PRJ();
+  const payload={}; payload[PRJID]=DB;   /* keyed by the CURRENT project id */
+  SB.from('projects').upsert({ id:prj.id, workspace_id:ME.ws, name:prj.name, key:prj.key,
+    description:prj.desc, template:prj.template, color:prj.color, data:payload, updated_by:ME.id })
+    .then(({error})=>{ if(error) console.warn('cloudSave:',error.message); });
+}
+async function cloudLoad(){
+  if(!SB||!ME||!ME.cloud||!ME.ws) return;
+  try{
+    const {data}=await SB.from('projects').select('*').eq('id',PRJID).maybeSingle();
+    if(data&&data.data&&Object.keys(data.data).length){
+      PRJDATA=data.data; DB=PRJDATA[PRJID]||freshDataset();
+      if(ME) renderAll();
+    }
+  }catch(e){ console.warn('cloudLoad:',e); }
+}
+
+function subscribeRealtime(){
+  if(!SB) return;
+  try{
+    SB.channel('prj-'+PRJID).on('postgres_changes',
+      {event:'UPDATE',schema:'public',table:'projects',filter:'id=eq.'+PRJID},
+      (payload)=>{ if(payload.new&&payload.new.updated_by!==ME.id){ PRJDATA=payload.new.data; DB=PRJDATA[PRJID]||DB; renderAll(); toast('Updated on another device','g'); } }
+    ).subscribe();
+  }catch(e){}
+}
+function touch(kind,detail){
+  if(!DB) return;
+  if(!DB.activity) DB.activity=[];
+  DB.activity.push({kind:kind,detail:detail,who:ME?ME.name:'system',when:new Date().toLocaleString()});
+  if(DB.activity.length>400) DB.activity=DB.activity.slice(-400);
+}
+
+/* ---------------- auth screen ---------------- */
+function renderAuthScreen(){
+  const el=$('#authScreen');
+  if(ME){ el.classList.remove('on'); el.innerHTML=''; return; }
+  $('#loader').classList.add('done');
+  el.classList.add('on');
+  el.innerHTML=
+    '<div class="authBox">'+
+      '<div class="authL"><h1>SCRUM<i>FORGE</i></h1>'+
+        '<p><b>Your work board.</b> Backlog, hierarchy, sprints and reports for your own projects — no setup, no clutter.</p>'+
+        '<p>Data is stored privately in this browser'+(SB?', and synced to your Supabase project':'')+'. '+(SB?'<b style="color:var(--gr)">Cloud connected ✓</b>':'Connect Supabase (see BACKEND-SETUP.md) for accounts and multi-device sync.')+'</p>'+
+        '<span class="tag c">'+(SB?'Cloud sync':'Local-first')+'</span><span class="tag g">Offline-capable</span><span class="tag v">Light / dark</span>'+
+      '</div>'+
+      '<div class="authR">'+
+        (SB
+          ?'<h3>Sign in</h3>'+
+           '<div class="authEmail"><input id="auEmail" type="email" placeholder="you@email.com"><input id="auPw" type="password" placeholder="Password" style="max-width:110px"></div>'+
+           '<div style="display:flex;gap:8px">'+
+             '<button class="abtn pri" style="flex:1" onclick="emailSignIn()">Sign in</button>'+
+             '<button class="abtn" style="flex:1" onclick="emailSignUp()">Sign up</button>'+
+           '</div>'
+          :'<h3>What should I call you?</h3>'+
+           '<div class="authEmail"><input id="auName" placeholder="Your name" onkeydown="if(event.key===\'Enter\')localSignIn()">'+
+           '<button class="abtn pri" onclick="localSignIn()">Start</button></div>'+
+           '<small style="color:var(--dim)">Local mode — no account needed. Add Supabase keys later for real sign-in and sync.</small>')+
+      '</div>'+
+    '</div>';
+}
+function localSignIn(){
+  const name=($('#auName')&&$('#auName').value.trim())||'';
+  if(!name){ toast('Type your name to start','a'); return; }
+  ME={id:'local',email:'',name:name,initials:name.slice(0,2).toUpperCase(),color:'#2563eb',role:'owner'};
+  bootAsUser();
+  renderAuthScreen();
+}
+function emailSignIn(){
+  const email=$('#auEmail').value.trim(), pw=$('#auPw').value;
+  if(!email||!pw){ toast('Email and password required','a'); return; }
+  if(SB){ cloudSignIn(email,pw); return; }
+  toast('Configure Supabase keys for accounts — local mode only needs a name','a');
+}
+function emailSignUp(){
+  const email=$('#auEmail').value.trim(), pw=$('#auPw').value;
+  if(!email||!pw){ toast('Email and password required','a'); return; }
+  if(!SB){ toast('Configure Supabase keys for accounts (BACKEND-SETUP.md)','a'); return; }
+  cloudSignUp(email,pw,email.split('@')[0]);
+}
+
+/* ---------------- helpers ---------------- */
+
+const $=s=>document.querySelector(s);
+const $$=s=>Array.from(document.querySelectorAll(s));
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+const DAY=86400000;
+function d2t(s){ return Math.floor(new Date(s+'T00:00:00Z').getTime()/DAY); }
+function fmtD(iso){ if(!iso) return '—'; return new Date(iso+'T00:00:00Z').toLocaleDateString(undefined,{day:'numeric',month:'short'}); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function pinDayNum(){ if(!DB.pinDay) DB.pinDay=todayISO(); return d2t(DB.pinDay); }
+
+/* ---------------- project (single, local) ---------------- */
+const PROJECTS=[
+  {id:'main', name:'ScrumForge Delivery', key:'SF', template:'scrum', icon:'⚒', color:'#2563eb', desc:'Building the ScrumForge platform'}
+];
+let PRJID='main';
+const PRJ=()=>PROJECTS.find(p=>p.id===PRJID)||PROJECTS[0];
+function renderWsBar(){
+  const el=$('#wsBar'); if(!el) return;
+  if(!ME){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='flex';
+  el.innerHTML=
+    '<span class="brand">⚒ SCRUM<i>FORGE</i></span>'+
+    '<span class="netbadge '+(SB?'cloud':'local')+'" title="'+(SB?'Supabase connected — data syncs across devices':'Local mode — data lives in this browser')+'">'+(SB?'☁ CLOUD SYNC':'◧ LOCAL')+'</span>'+
+    '<div id="wbMid">'+
+      (PROJECTS.length>1
+        ?'<select id="prjSel">'+PROJECTS.map(p=>'<option value="'+esc(p.id)+'"'+(p.id===PRJID?' selected':'')+'>'+esc(p.name)+'</option>').join('')+'</select>'
+        :'<span style="font-size:12px;color:var(--dim)">'+esc(PRJ().icon+' '+PRJ().name)+'</span>')+
+      (SB?'<button class="ibtn" onclick="newProjectModal()" title="New project">＋ Project</button>':'')+
+    '</div>'+
+    '<div class="acct"><span class="who">'+esc(ME.name)+' · '+esc(roleLabel(ME.role))+'</span>'+
+      '<span class="ava" style="background:'+esc(ME.color)+'">'+esc(ME.initials)+'</span>'+
+      '<button class="ibtn" onclick="logout()" title="Sign out">⎋</button></div>';
+  const ps=$('#prjSel'); if(ps) ps.onchange=e=>switchProject(e.target.value);
+}
+function switchProject(id){
+  PRJID=id; try{ localStorage.setItem('sf.prj',id); }catch(e){}
+  loadAll(); renderAll(); toast('Switched project','g');
+}
+function newProjectModal(){
+  openModal('<div class="mHead"><b>＋ New project</b><button class="x" onclick="closeModal()">✕</button></div>'+
+    '<div class="mBody">'+
+    '<div class="frow"><div class="fld"><label>Name</label><input id="pName" placeholder="Side project"></div>'+
+    '<div class="fld"><label>Template</label><select id="pTpl"><option value="scrum">Scrum</option><option value="kanban">Kanban</option><option value="scrumban">Scrumban</option></select></div></div>'+
+    '<div class="frow one"><div class="fld"><label>Description</label><input id="pDesc" placeholder="What is this project about?"></div></div>'+
+    '</div><div class="mFoot"><button class="abtn" onclick="closeModal()">Cancel</button><button class="abtn pri" onclick="createProject()">Create</button></div>');
+}
+function createProject(){
+  const name=$('#pName').value.trim(); if(!name){ toast('Name required','a'); return; }
+  const p={id:(SB&&window.crypto&&crypto.randomUUID)?crypto.randomUUID():('prj-'+Date.now()),name:name,key:name.slice(0,2).toUpperCase(),template:$('#pTpl').value,icon:'📁',color:'#7c3aed',desc:$('#pDesc').value.trim()};
+  PROJECTS.push(p); PRJID=p.id;
+  PRJDATA[p.id]=freshDataset(); DB=PRJDATA[p.id];
+  try{ localStorage.setItem('sf.prj',PRJID); }catch(e){}
+  touch('created','Project "'+p.name+'" created');
+  save(); closeModal(); renderAll(); toast('Project created','g');
+}
+function bootAsUser(){
+  loadAll();
+  try{ const saved=localStorage.getItem('sf.prj'); if(saved&&PRJDATA[saved]) PRJID=saved; }catch(e){}
+  buildNav(); renderAll();
+  $('#loader').classList.add('done');
+  try{ localStorage.setItem('sf.me.v1',JSON.stringify(ME)); }catch(e){}
+  $('#btnReset').style.display=(can('edit')&&!ME.cloud)?'block':'none';   /* in cloud mode data lives in Supabase, not this browser */
+  $('#btnReset').onclick=wipeAll;
+  try{
+    if(!localStorage.getItem('sf.onboarded') && DB.stories.length===0 && DB.sprints.length===0){ setupModal(); localStorage.setItem('sf.onboarded','1'); }
+  }catch(e){}
+  if(SB) subscribeRealtime();
+}
+function logout(){ try{ if(SB) SB.auth.signOut(); }catch(e){} try{ localStorage.removeItem('sf.me.v1'); }catch(e){} location.reload(); }
+function aboutBackend(){
+  openModal('<div class="mHead"><b>☁ Backend setup (Supabase)</b><button class="x" onclick="closeModal()">✕</button></div>'+
+   '<div class="mBody"><ol style="padding-left:18px;font-size:12.5px;line-height:1.9">'+
+   '<li>Create a free project at <b>supabase.com</b></li>'+
+   '<li>SQL Editor → run <b>supabase-schema.sql</b> (ships with this app)</li>'+
+   '<li>Copy <b>Project URL</b> + <b>anon key</b> from Settings → API</li>'+
+   '<li>Paste into <b>SUPABASE_URL</b> / <b>SUPABASE_ANON</b> at the top of the script in this file</li>'+
+   '<li>Add the Supabase CDN script (see BACKEND-SETUP.md) and reload</li></ol>'+
+   '<p style="color:var(--dim);font-size:12px">Then sign in with email — your board syncs across devices in realtime.</p></div>'+
+   '<div class="mFoot"><button class="abtn pri" onclick="closeModal()">Got it</button></div>');
+}
+function setupModal(){
+  openModal('<div class="mHead"><b>⚙ Set up your board</b><button class="x" onclick="closeModal()">✕</button></div>'+
+    '<div class="mBody">'+
+    '<div class="frow one"><div class="fld"><label>What are you working on?</label><input id="obName" value="ScrumForge Delivery"></div></div>'+
+    '<div class="frow one"><div class="fld"><label>Short description</label><input id="obDesc" value="Building the ScrumForge platform"></div></div>'+
+    '<p style="color:var(--dim);font-size:11.5px">The board comes pre-loaded with your team roster and the build backlog — rename or re-scope anything anytime.</p>'+
+    '</div><div class="mFoot"><button class="abtn pri" onclick="saveSetup()">Open my board →</button></div>');
+}
+function saveSetup(){
+  const name=$('#obName').value.trim()||'My Work';
+  PRJ().name=name; PRJ().key=name.slice(0,2).toUpperCase(); PRJ().desc=$('#obDesc').value.trim();
+  touch('created','Board "'+name+'" set up');
+  save(); closeModal(); renderAll(); toast('Welcome to ScrumForge, '+ME.name.split(' ')[0],'g');
+}
+function sprintLen(sp){ return Math.max(1, (d2t(sp.end)-d2t(sp.start))+1); }
+function daysLeft(sp){ return Math.max(0, d2t(sp.end)-pinDayNum()+1); }
+function dayIdx(sp){ return Math.min(Math.max(pinDayNum()-d2t(sp.start)+1,0), sprintLen(sp)); }
+
+const COLS=[
+  {id:'backlog', nm:'Backlog',     icon:'·'},
+  {id:'todo',    nm:'To Do',       icon:'→'},
+  {id:'wip',     nm:'In Progress', icon:'⚡'},
+  {id:'review',  nm:'Review',      icon:'◈'},
+  {id:'done',    nm:'Done',        icon:'✓'},
+  {id:'archiving', nm:'Archived',  icon:'▣'}
+];
+const WIP_LIMIT=4;
+const ITEM_TYPES={
+  epic:       {lbl:'Epic',        icon:'◆', cls:'v'},
+  story:      {lbl:'Story',       icon:'●', cls:'c'},
+  task:       {lbl:'Task',        icon:'▪', cls:'b'},
+  subtask:    {lbl:'Subtask',     icon:'▫', cls:'d'},
+  bug:        {lbl:'Bug',         icon:'✖', cls:'r'},
+  improvement:{lbl:'Improvement', icon:'✦', cls:'g'},
+  spike:      {lbl:'Spike',       icon:'◊', cls:'a'}
+};
+function itemById(id){ return DB.stories.find(s=>s.id===id); }
+function kidItems(pid){ return DB.stories.filter(s=>s.parent===pid); }
+function descIds(id){ const out=[]; const walk=p=>{ kidItems(p).forEach(k=>{ out.push(k.id); walk(k.id); }); }; walk(id); return out; }
+const PTS=[1,2,3,5,8,13];
+const MOSCOW={M:'Must',S:'Should',C:'Could',W:'Won\u2019t'};
+
+const MEMBERS=[]; /* legacy placeholder — real roster lives in DB.team */
+function teamList(){ return (DB&&DB.team)?DB.team:MEMBERS; }
+function userById(id){
+  const u=teamList().find(t=>t.id===id);
+  if(u) return u;
+  if(id==='U1'&&ME) return {name:ME.name,initials:ME.initials,color:ME.color};
+  return {name:'Unassigned',initials:'?',color:'#94a3b8'};
+}
+const EPICS=[
+  {id:'E1', name:'Accounts & Platform',   color:'#2563eb', desc:'Auth, data, sync'},
+  {id:'E2', name:'Planning & Tracking',   color:'#7c3aed', desc:'Backlog, sprints, roadmap'},
+  {id:'E3', name:'Collaboration',         color:'#0891b2', desc:'Board, comments, realtime'},
+  {id:'E4', name:'Design & Experience',   color:'#d97706', desc:'UI system, themes, a11y'},
+  {id:'E5', name:'Quality & Release',     color:'#059669', desc:'Testing, docs, deploy'}
+];
+const LABELS={
+  feature:{name:'feature', cls:'c'}, backend:{name:'backend', cls:'b'},
+  frontend:{name:'frontend', cls:'a'}, design:{name:'design', cls:'v'},
+  qa:{name:'qa', cls:'g'}, docs:{name:'docs', cls:'d'},
+  infra:{name:'infra', cls:'p'}, bug:{name:'bug', cls:'r'}
+};
+function labelTag(k){ const l=LABELS[k]; return l?'<span class="tag '+l.cls+'">'+l.name+'</span>':''; }
+const epicById = id => EPICS.find(e=>e.id===id) || {name:id,color:'#64748b'};
+const sprintByN = n => DB.sprints.find(s=>s.n===n);
+const activeSprint = () => DB.sprints.find(s=>s.status==='active');
+const storyById = id => DB.stories.find(x=>x.id===id);
+const sprintStories = n => DB.stories.filter(s=>s.sprint===n);
+const doneSprints = () => DB.sprints.filter(s=>s.status==='done');
+function sprintPoints(n){ return sprintStories(n).reduce((a,s)=>a+s.points,0); }
+function donePoints(n){ return sprintStories(n).filter(s=>s.status==='done').reduce((a,s)=>a+s.points,0); }
+function avgVelocity(){ const ds=doneSprints(); return ds.length? Math.round(ds.reduce((a,s)=>a+s.completed,0)/ds.length*10)/10 : 0; }
+function committedOf(sp){ return sp.committed || sprintPoints(sp.n); }
+function backlogOpenPoints(){ return DB.stories.filter(s=>(!s.sprint || s.status!=='done') && s.status!=='archiving').reduce((a,s)=>a+s.points,0); }
+
+function toast(msg,kind){
+  const box=$('#toasts'); if(!box) return;
+  const el=document.createElement('div');
+  el.className='toast'+(kind?' '+kind:'');
+  el.textContent=msg;
+  box.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),320); },2600);
+}
+
+function openModal(html){ const r=$('#modalRoot'); r.innerHTML='<div class="modal">'+html+'</div>'; r.classList.add('on'); }
+function closeModal(){ const r=$('#modalRoot'); r.classList.remove('on'); r.innerHTML=''; }
+
+/* ---------------- theme ---------------- */
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  try{ localStorage.setItem('sf.theme',t); }catch(e){}
+  const b=$('#btnTheme'); if(b) b.textContent=t==='dark'?'☀ Light mode':'🌙 Dark mode';
+}
+function toggleTheme(){
+  applyTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark');
+  if(ME&&(VIEW==='dash'||VIEW==='reports')) renderAll();
+}
+
+/* =====================================================================
+   RENDER
+===================================================================== */
+
+const NAV=[
+  {id:'dash',    ic:'◱', lbl:'Dashboard'},
+  {id:'backlog', ic:'≡', lbl:'Backlog'},
+  {id:'tree',    ic:'⑂', lbl:'Hierarchy'},
+  {id:'board',   ic:'▤', lbl:'Board'},
+  {id:'sprints', ic:'↻', lbl:'Sprints'},
+  {id:'reports', ic:'◔', lbl:'Reports'},
+  {id:'team',    ic:'☺', lbl:'Team'},
+  {id:'about',   ic:'★', lbl:'About'}
+];
+let VIEW='dash';
+
+function buildNav(){
+  if(!ME){ $('#nav').innerHTML=''; return; }
+  $('#nav').innerHTML = NAV.map(n=>
+    '<button class="navitem'+(n.id===VIEW?' on':'')+'" data-v="'+n.id+'"><span class="ic">'+n.ic+'</span><span class="lbl">'+n.lbl+'</span></button>'
+  ).join('');
+  $$('#nav .navitem[data-v]').forEach(b=>b.onclick=()=>go(b.dataset.v));
+}
+
+function go(v){
+  VIEW=v;
+  $$('#nav .navitem').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  renderAll();
+  window.scrollTo({top:0});
+}
+
+function head(title,sub,acts){
+  $('#vTitle').textContent=title;
+  $('#vSub').textContent=sub||'';
+  if(!ME){ $('#vActs').innerHTML=''; return; }
+  const list=(acts||[]).filter(a=>!a.admin||can('admin')).filter(a=>!a.edit||can('edit'));
+  $('#vActs').innerHTML=list.map(a=>
+    '<button class="abtn '+(a.cls||'')+'" onclick="'+a.fn+'">'+(a.ic||'')+' '+a.lbl+'</button>'
+  ).join('');
+}
+
+function renderAll(){
+  if(!ME) return;
+  renderWsBar();
+  renderSprintChip();
+  const R={dash:vDash, backlog:vBacklog, board:vBoard, sprints:vSprints, reports:vReports, team:vTeam, about:vAbout, tree:vTree};
+  $$('.pane').forEach(p=>p.classList.remove('on'));
+  const pane=$('#v-'+VIEW); if(pane) pane.classList.add('on');
+  (R[VIEW]||vDash)();
+  buildNav();
+}
+
+function renderSprintChip(){
+  const sp=activeSprint();
+  const el=$('#sprintChip');
+  if(!sp){ el.innerHTML='<b>'+esc(PRJ().name)+'</b><div class="row">No active sprint</div><div class="row">Plan one in Sprints</div>'; return; }
+  el.innerHTML='<b>'+esc(PRJ().name)+'</b>'+
+    '<div class="row"><span>'+esc(sp.name)+'</span></div>'+
+    '<div class="row"><span>Day '+dayIdx(sp)+'/'+sprintLen(sp)+'</span><span>'+daysLeft(sp)+'d left</span></div>'+
+    '<div class="row"><span>Done '+donePoints(sp.n)+'/'+committedOf(sp)+' pts</span></div>';
+}
+
+/* ---------------- hierarchy tree ---------------- */
+function vTree(){
+  head('Hierarchy','Epic → Story → Task → Subtask — the full breakdown of the backlog',[]);
+  const roots=DB.stories.filter(s=>!s.parent);
+  $('#v-tree').innerHTML= roots.length
+    ? '<div class="card">'+treeRows(roots,0)+'</div>'
+    : '<div class="card" style="color:var(--dim)">Nothing yet — add items in the Backlog.</div>';
+  $$('#v-tree .tw[data-k]').forEach(t=>t.onclick=()=>{ const k=t.dataset.k; const box=document.querySelector('[data-kids="'+k+'"]'); if(box){ const hid=box.style.display==='none'; box.style.display=hid?'':'none'; t.textContent=hid?'▾':'▸'; }});
+  $$('#v-tree .tt').forEach(t=>t.onclick=()=>storyModal(t.dataset.id));
+}
+function treeRows(list,depth){
+  return list.map(s=>{
+    const kids=kidItems(s.id);
+    const it=ITEM_TYPES[s.type||'story'];
+    return '<div class="treeRow" style="padding-left:'+(12+depth*22)+'px">'+
+      (kids.length?'<span class="tw" data-k="'+esc(s.id)+'">▾</span>':'<span class="tw">·</span>')+
+      '<span class="tag iconE '+(it?it.cls:'d')+'">'+(it?it.icon:'●')+' '+(it?it.lbl:'')+'</span>'+
+      '<span class="tt" data-id="'+esc(s.id)+'">'+esc(s.title)+'</span>'+
+      '<span class="kids">'+s.points+' pts · '+colName(s.status)+(s.sprint?' · S'+s.sprint:'')+(kids.length?' · '+kids.length+' sub':'')+'</span>'+
+      (can('edit')?'<button class="ibtn" onclick="newStoryModal(null,\''+esc(s.id)+'\')" title="Add sub-item">＋</button>':'')+
+      '</div>'+
+      (kids.length?'<div data-kids="'+esc(s.id)+'">'+treeRows(kids,depth+1)+'</div>':'');
+  }).join('');
+}
+
+/* ---------------- dashboard ---------------- */
+
+function vDash(){
+  head('Dashboard',PRJ().icon+' '+PRJ().name+(PRJ().desc?' · '+PRJ().desc:''),[
+    {lbl:'New item', ic:'＋', fn:'newStoryModal()', cls:'pri', edit:true},
+    {lbl:'Open board', ic:'▤', fn:"go('board')"}
+  ]);
+  const sp=activeSprint();
+  const committed=sp?committedOf(sp):0;
+  const done=sp?donePoints(sp.n):0;
+  const pct=committed?Math.round(done/committed*100):0;
+  const wip=sprintStories(sp?sp.n:0).filter(s=>s.status==='wip').length;
+
+  $('#v-dash').innerHTML=
+    '<div class="kgrid">'+
+      kpi(avgVelocity(),'pts','Avg velocity','g')+
+      kpi(sp?daysLeft(sp):0,'days','Sprint days left', sp&&daysLeft(sp)<=2?'a':'')+
+      kpi(committed,'pts','Committed','b')+
+      kpi(done,'pts','Done','g')+
+      kpi(pct+'%','','Sprint complete','v')+
+      kpi(wip+'/'+WIP_LIMIT,'','WIP (In Progress)', wip>WIP_LIMIT?'r':'')+
+      kpi(backlogOpenPoints(),'pts','Open backlog','a')+
+    '</div>'+
+    '<div class="g2" style="margin-top:12px">'+
+      '<div class="card"><div class="ct"><span>Active sprint</span><b>'+(sp?esc(sp.name):'none')+'</b></div>'+
+        (sp?
+          '<div style="font-size:12.5px;color:var(--dim);margin-bottom:8px">🎯 '+esc(sp.goal)+'</div>'+
+          '<div class="wl"><span>'+fmtD(sp.start)+' → '+fmtD(sp.end)+'</span><span>'+done+' / '+committed+' pts</span></div>'+
+          '<div class="pbar"><i style="width:'+pct+'%"></i></div>'+
+          '<div style="display:flex;gap:7px;margin-top:11px">'+
+            '<button class="abtn" onclick="go(\'board\')">▤ Sprint board</button>'+
+            '<button class="abtn" onclick="go(\'reports\')">◔ Burndown</button>'+
+          '</div>'
+        :'<div style="color:var(--dim)">No active sprint. Create one in <b>Sprints</b>, pull items in, and start it.</div>')+
+      '</div>'+
+      '<div class="card"><div class="ct"><span>Burndown · '+(sp?esc(sp.name):'—')+'</span><b>ideal vs remaining</b></div>'+
+        '<canvas id="cBurnMini" class="chart" height="170"></canvas></div>'+
+    '</div>'+
+    '<div class="card"><div class="ct"><span>Velocity per sprint</span><b>committed vs completed</b></div>'+
+      '<canvas id="cVelMini" class="chart" height="170"></canvas></div>';
+
+  if(sp) lineChart($('#cBurnMini'), burnSeries(sp.n), {today:dayIdx(sp)-1});
+  else   blankChart($('#cBurnMini'));
+  barChart($('#cVelMini'), velSeries());
+}
+
+function kpi(v,unit,lbl,cls){
+  return '<div class="kpi '+(cls||'')+'"><div class="v">'+v+'<small>'+(unit||'')+'</small></div><div class="l">'+lbl+'</div></div>';
+}
+function blankChart(cv){ if(!cv) return; const x=cv.getContext('2d'); x.fillStyle=cssVar('--dim'); x.font='11px monospace'; x.fillText('no active sprint', 20, 60); }
+
+/* ---------------- backlog ---------------- */
+
+function vBacklog(){
+  head('Backlog','Ordered by priority · grouped by bucket · '+DB.stories.length+' items',[
+    {lbl:'New item', ic:'＋', fn:'newStoryModal()', cls:'pri', edit:true}
+  ]);
+  $('#v-backlog').innerHTML=
+    '<div id="bkTools">'+
+      '<input type="search" id="bkQ" placeholder="🔍 Search…" value="'+esc(bkQ||'')+'">'+
+      '<select id="bkEpic"><option value="">All buckets</option>'+EPICS.map(e=>'<option value="'+e.id+'"'+(bkEpic===e.id?' selected':'')+'>'+esc(e.name)+'</option>').join('')+'</select>'+
+      '<select id="bkPri"><option value="">All priorities</option>'+Object.keys(MOSCOW).map(k=>'<option value="'+k+'"'+(bkPri===k?' selected':'')+'>'+k+' · '+MOSCOW[k]+'</option>').join('')+'</select>'+
+    '</div><div id="bkList"></div>';
+  renderBacklogList();
+  $('#bkQ').oninput=e=>{ bkQ=e.target.value; renderBacklogList(); };
+  $('#bkEpic').onchange=e=>{ bkEpic=e.target.value; renderBacklogList(); };
+  $('#bkPri').onchange=e=>{ bkPri=e.target.value; renderBacklogList(); };
+}
+let bkQ='', bkEpic='', bkPri='';
+
+function renderBacklogList(){
+  const q=bkQ.trim().toLowerCase();
+  const groups=EPICS.filter(e=>!bkEpic||e.id===bkEpic).map(e=>{
+    let items=DB.stories.filter(s=>s.epic===e.id);
+    if(q) items=items.filter(s=>s.title.toLowerCase().includes(q)||s.id.toLowerCase().includes(q));
+    if(bkPri) items=items.filter(s=>s.priority===bkPri);
+    return {e,items};
+  }).filter(g=>g.items.length);
+  const stray=DB.stories.filter(s=>!EPICS.find(e=>e.id===s.epic));
+
+  $('#bkList').innerHTML = (groups.length||stray.length)? groups.map(g=>{
+    const done=g.items.filter(s=>s.status==='done').length;
+    const pts=g.items.reduce((a,s)=>a+s.points,0);
+    const pct=Math.round(done/g.items.length*100);
+    return '<div class="epic">'+
+      '<div class="epicHead"><span class="dotp" style="background:'+g.e.color+'"></span><b>'+esc(g.e.name)+'</b>'+
+      '<span class="meta">'+done+'/'+g.items.length+' done · '+pts+' pts</span>'+
+      '<span class="bar"><i style="width:'+pct+'%"></i></span>'+
+      '<span class="meta" style="margin-left:auto">'+esc(g.e.desc)+'</span></div>'+
+      g.items.map(s=>storyRow(s,g.items)).join('')+
+      '</div>';
+  }).join('') + stray.map(s=>storyRow(s,[s])).join('')
+  : '<div class="card" style="color:var(--dim)">Empty board. Click <b>＋ New item</b> to add your first task.</div>';
+
+  $$('#bkList .st').forEach(el=>el.onclick=()=>storyModal(el.dataset.id));
+  $$('#bkList .mbtn[data-act]').forEach(b=>b.onclick=()=>moveStory(b.dataset.id,b.dataset.act));
+}
+
+function storyRow(s,list){
+  const u=userById(s.assignee), e=epicById(s.epic);
+  const idx=list.indexOf(s);
+  const it=ITEM_TYPES[s.type||'story'];
+  return '<div class="storyRow">'+
+    '<span class="sid">'+esc(s.id)+'</span>'+
+    '<span class="tag iconE '+(it?it.cls:'d')+'" title="'+(it?it.lbl:'')+'">'+(it?it.icon:'●')+'</span>'+
+    '<span class="st" data-id="'+esc(s.id)+'" title="Open item">'+esc(s.title)+'</span>'+
+    '<span class="tag '+(s.sprint?'c':'d')+'">'+(s.sprint?('S'+s.sprint):'unscheduled')+'</span>'+
+    '<span class="tag '+(s.status==='done'?'g':(s.status==='review'?'a':(s.status==='wip'?'v':'d')))+'">'+colName(s.status)+'</span>'+
+    '<span class="tag '+(s.priority==='M'?'r':(s.priority==='S'?'c':(s.priority==='C'?'b':'d')))+'">'+esc(s.priority)+'</span>'+
+    (s.labels||[]).slice(0,3).map(labelTag).join('')+
+    '<span class="pts">'+s.points+'</span>'+
+    '<span class="ava" style="background:'+u.color+'" title="'+esc(u.name)+'">'+esc(u.initials)+'</span>'+
+    '<span class="mv">'+
+      '<button class="mbtn" data-act="up" data-id="'+esc(s.id)+'" '+(idx<=0?'disabled':'')+'>▲</button>'+
+      '<button class="mbtn" data-act="dn" data-id="'+esc(s.id)+'" '+(idx>=list.length-1?'disabled':'')+'>▼</button>'+
+    '</span></div>';
+}
+function colName(st){ const c=COLS.find(c=>c.id===st); return c?c.nm:st; }
+
+/* ---------------- board ---------------- */
+
+function vBoard(){
+  const sp=activeSprint();
+  head('Board','Drag cards between columns · '+(sp?esc(sp.name):'no active sprint'),[
+    {lbl:'New item', ic:'＋', fn:'newStoryModal()', cls:'pri', edit:true}
+  ]);
+  if(!sp){ $('#v-board').innerHTML='<div class="card" style="color:var(--dim)">No active sprint. Create and start one in <b>Sprints</b>, or plan items into it from the item modal.</div>'; return; }
+  const stories=sprintStories(sp.n);
+  $('#v-board').innerHTML='<div id="board">'+COLS.map(c=>{
+    const items=stories.filter(s=>s.status===c.id);
+    const pts=items.reduce((a,s)=>a+s.points,0);
+    const wip=c.id==='wip';
+    return '<div class="bcol" data-col="'+c.id+'">'+
+      '<div class="bcolH"><span>'+c.icon+'</span><span class="nm">'+c.nm+'</span>'+
+      (wip?'<span class="wip'+(items.length>WIP_LIMIT?' hot':'')+'">WIP ≤'+WIP_LIMIT+'</span>':'')+
+      '<span class="cnt">'+items.length+' · '+pts+'p</span></div>'+
+      '<div class="bcolBody">'+
+        items.map(s=>{
+          const u=userById(s.assignee);
+          return '<div class="bcard" draggable="true" data-id="'+esc(s.id)+'">'+
+            '<div class="bid"><span>'+esc(s.id)+'</span><span>'+esc(s.priority)+' '+(ITEM_TYPES[s.type||'story']||ITEM_TYPES.story).icon+'</span></div>'+
+            '<div class="bt" data-id="'+esc(s.id)+'">'+esc(s.title)+'</div>'+
+            '<div class="bmeta"><span class="pts">'+s.points+'</span><span class="ep">'+esc(epicById(s.epic).name)+'</span>'+
+            ((s.labels||[]).length?'<span class="tag '+LABELS[s.labels[0]].cls+'" style="font-size:8px;padding:1px 6px">'+LABELS[s.labels[0]].name+'</span>':'')+
+            '<span class="ava" style="background:'+u.color+'" title="'+esc(u.name)+'">'+esc(u.initials)+'</span></div></div>';
+        }).join('')+
+      '</div>'+
+      '<button class="bcolAdd" onclick="newStoryModal(\''+c.id+'\')">＋ add item</button></div>';
+  }).join('')+'</div>';
+
+  $$('#board .bcard').forEach(el=>{
+    el.ondragstart=e=>{ e.dataTransfer.setData('text/plain',el.dataset.id); el.classList.add('dragging'); };
+    el.ondragend=()=>el.classList.remove('dragging');
+  });
+  $$('#board .bt').forEach(el=>el.onclick=()=>storyModal(el.dataset.id));
+  $$('#board .bcol').forEach(col=>{
+    col.ondragover=e=>{ e.preventDefault(); col.classList.add('over'); };
+    col.ondragleave=()=>col.classList.remove('over');
+    col.ondrop=e=>{
+      e.preventDefault(); col.classList.remove('over');
+      const id=e.dataTransfer.getData('text/plain');
+      if(id) setStatus(id, col.dataset.col);
+    };
+  });
+}
+
+/* ---------------- sprints ---------------- */
+
+function vSprints(){
+  head('Sprints','Plan · start · close — work in focused timeboxes',[
+    {lbl:'New sprint', ic:'＋', fn:'newSprintModal()', cls:'pri', edit:true}
+  ]);
+  $('#v-sprints').innerHTML= DB.sprints.length
+    ? '<div class="spGrid">'+DB.sprints.slice().sort((a,b)=>a.n-b.n).map(sp=>{
+        const total=committedOf(sp), done=sp.status==='done'?sp.completed:donePoints(sp.n);
+        const pct=total?Math.round(done/total*100):0;
+        const stTag=sp.status==='done'?'g':(sp.status==='active'?'c':'a');
+        return '<div class="spCard '+sp.status+'">'+
+          '<div class="spTop"><span class="spName">'+esc(sp.name)+'</span><span class="tag '+stTag+'">'+sp.status.toUpperCase()+'</span></div>'+
+          '<div class="spGoal">🎯 '+esc(sp.goal)+'</div>'+
+          '<div class="spMeta"><span>📅 '+fmtD(sp.start)+' → '+fmtD(sp.end)+'</span><span>⏱ '+sprintLen(sp)+'d</span>'+
+          (sp.status==='active'?'<span>🔥 '+daysLeft(sp)+'d left</span>':'')+'</div>'+
+          '<div class="wl"><span>'+done+' / '+total+' pts</span><span>'+pct+'%</span></div>'+
+          '<div class="pbar"><i style="width:'+pct+'%"></i></div>'+
+          '<div class="spFoot">'+
+            (sp.status==='planned'&&can('edit')?'<button class="abtn pri" onclick="startSprint('+sp.n+')">▶ Start sprint</button>'+
+              '<button class="abtn" onclick="editSprintModal('+sp.n+')">✎ Edit</button>'+
+              '<button class="abtn dng" onclick="deleteSprint('+sp.n+')">🗑</button>':'')+
+            (sp.status==='active'?'<button class="abtn" onclick="go(\'board\')">▤ Board</button>'+
+              (can('edit')?'<button class="abtn g" style="border-color:rgba(5,150,105,.5);color:var(--gr)" onclick="closeSprint('+sp.n+')">✓ Close sprint</button>':''):'')+
+            (sp.status==='done'?'<span class="tag g">velocity '+sp.completed+' pts</span>':'')+
+          '</div></div>';
+      }).join('')+'</div>'
+    : '<div class="card" style="color:var(--dim)">No sprints yet. Create one, give it a goal and dates, then pull items in.</div>';
+}
+
+/* ---------------- reports ---------------- */
+
+function vReports(){
+  head('Reports','Burndown & velocity — computed live from the board',[
+    {lbl:'Export CSV', ic:'⬇', fn:'exportCSV()'},
+    {lbl:'Print / PDF report', ic:'🖨', fn:'printReport()', cls:'pri'}
+  ]);
+  const sp=activeSprint()||doneSprints().slice(-1)[0];
+  const ds=doneSprints();
+  $('#v-reports').innerHTML=
+    '<div class="card"><div class="ct"><span>Sprint burndown</span>'+
+      (DB.sprints.length?'<select id="repSprint" style="max-width:220px">'+DB.sprints.map(s=>'<option value="'+s.n+'"'+((sp&&s.n===sp.n)?' selected':'')+'>S'+s.n+' · '+esc(s.name)+'</option>').join('')+'</select>':'')+'</div>'+
+      (sp?'<canvas id="cBurn" class="chart" height="260"></canvas>'+
+      '<div style="font-size:10.5px;color:var(--dim);margin-top:6px">Ideal line (dashed) assumes linear burn. Review column burns 50% credit. Marker = today.</div>'
+      :'<div style="color:var(--dim);font-size:12px">No sprint data yet — plan and start a sprint first.</div>')+'</div>'+
+    '<div class="g2">'+
+      '<div class="card"><div class="ct"><span>Velocity</span><b>avg '+avgVelocity()+' pts</b></div><canvas id="cVel" class="chart" height="240"></canvas></div>'+
+      '<div class="card"><div class="ct"><span>Sprint summary</span><b>'+ds.length+' completed</b></div>'+
+        (DB.sprints.filter(s=>s.status!=='planned').length
+        ?'<table class="tb"><thead><tr><th>Sprint</th><th>Committed</th><th>Completed</th><th>Spill</th><th>Success</th></tr></thead><tbody>'+
+        DB.sprints.filter(s=>s.status!=='planned').map(s=>{
+          const c=committedOf(s), d=s.status==='done'?s.completed:donePoints(s.n);
+          return '<tr><td>S'+s.n+'</td><td>'+c+'</td><td>'+d+'</td><td>'+(c-d)+'</td><td>'+(c?Math.round(d/c*100):0)+'%</td></tr>';
+        }).join('')+'</tbody></table>'
+        :'<div style="color:var(--dim);font-size:12px">Close your first sprint to see velocity history.</div>')+
+      '</div>'+
+    '</div>';
+  const sel=$('#repSprint');
+  if(sel) sel.onchange=e=>{ const s=sprintByN(+e.target.value); lineChart($('#cBurn'), burnSeries(+e.target.value), {today: s.status==='active'?dayIdx(s)-1:null}); };
+  if(sp) lineChart($('#cBurn'), burnSeries(sp.n), {today: sp&&sp.status==='active'?dayIdx(sp)-1:null});
+  barChart($('#cVel'), velSeries());
+}
+
+/* ---------------- team ---------------- */
+
+function initialsOf(name){
+  const p=String(name||'?').trim().split(/\s+/).filter(Boolean);
+  if(!p.length) return '?';
+  if(p.length===1) return p[0].slice(0,2).toUpperCase();
+  return (p[0][0]+p[p.length-1][0]).toUpperCase();
+}
+const TEAM_COLORS=['#2563eb','#7c3aed','#0891b2','#d97706','#db2777','#059669','#dc2626','#4f46e5'];
+
+function vTeam(){
+  head('Team','Roles, capacity and workload — '+teamList().length+' members',[
+    {lbl:'Add member', ic:'＋', fn:'addMemberModal()', cls:'pri', edit:true}
+  ]);
+  const sp=activeSprint();
+  const teamCap=teamList().reduce((a,u)=>a+(u.capacity||20),0);
+  const sprintPts=sp?sprintPoints(sp.n):0;
+  $('#v-team').innerHTML=
+    '<div class="kgrid" style="margin-bottom:12px">'+
+      kpi(teamList().length,'people','Team size','b')+
+      kpi(teamCap,'pts','Total capacity / sprint','v')+
+      kpi(sprintPts,'pts',sp?'Committed (active sprint)':'Active sprint commit', sprintPts>teamCap?'r':'g')+
+    '</div>'+
+    '<div class="tGrid">'+teamList().map(u=>{
+      const load=sp?sprintStories(sp.n).filter(s=>s.assignee===u.id&&s.status!=='done').reduce((a,s)=>a+s.points,0):0;
+      const pct=Math.min(100,Math.round(load/(u.capacity||20)*100));
+      const over=load>(u.capacity||20);
+      return '<div class="tCard">'+
+        '<div class="tTop"><div class="tAva" style="background:'+u.color+'">'+esc(initialsOf(u.name))+'</div>'+
+        '<div><div class="tName">'+esc(u.name)+'</div><div class="tRole">'+esc(u.role)+'</div></div>'+
+        (can('edit')?'<button class="ibtn" style="margin-left:auto" onclick="editMember(\''+u.id+'\')">✎</button>':'')+'</div>'+
+        '<div class="wl"><span>Sprint load</span><span'+(over?' style="color:var(--rd)"':'')+'>'+load+' / '+(u.capacity||20)+' pts</span></div>'+
+        '<div class="pbar"><i style="width:'+pct+'%;'+(over?'background:var(--rd)':'')+'"></i></div>'+
+        '<div class="chips">'+sprintStories(sp?sp.n:0).filter(s=>s.assignee===u.id&&s.status!=='done').slice(0,4).map(s=>'<span class="tag d">'+esc(s.id)+'</span>').join('')+(load===0?'<span class="tag d">no open items</span>':'')+'</div>'+
+        '</div>';
+    }).join('')+'</div>'+
+    '<div class="card" style="margin-top:12px"><div class="ct"><span>Invite a teammate</span><b>'+(SB?'Supabase connected':'needs Supabase')+'</b></div>'+
+      (SB
+        ?'<div class="authEmail"><input id="invEmail" type="email" placeholder="teammate@email.com (they must sign up first)"><select id="invRole" style="max-width:170px"><option value="developer">Developer</option><option value="scrum_master">Scrum Master</option><option value="product_owner">Product Owner</option><option value="admin">Admin</option><option value="viewer">Viewer (read-only)</option></select><button class="abtn pri" onclick="inviteMember()">Invite</button></div>'+
+         '<p style="color:var(--dim);font-size:11px;margin-top:8px">They create an account via Sign up on the login screen first; your invite then assigns their role. Roles are enforced by the database (RLS), not just the UI.</p>'
+        :'<p style="color:var(--dim);font-size:12px">Invites need the Supabase backend (see About → Connect Supabase, or <b>BACKEND-SETUP.md</b>). Until then, teammates can still be added above and the board works locally.</p>')+
+    '</div>';
+}
+function addMemberModal(){
+  if(!can('edit')){ toast('Read-only account','a'); return; }
+  openModal('<div class="mHead"><b>＋ Add team member</b><button class="x" onclick="closeModal()">✕</button></div>'+
+    '<div class="mBody">'+
+    '<div class="frow"><div class="fld"><label>Name</label><input id="mName" placeholder="Full name"></div>'+
+    '<div class="fld"><label>Scrum role</label><select id="mRole"><option>Product Owner</option><option>Scrum Master</option><option>Backend Developer</option><option>Frontend Developer</option><option>UI/UX Designer</option><option>QA Engineer</option><option>Developer</option></select></div></div>'+
+    '<div class="frow"><div class="fld"><label>Capacity (pts / sprint)</label><input id="mCap" type="number" value="20" min="0" max="99"></div></div>'+
+    '</div><div class="mFoot"><button class="abtn" onclick="closeModal()">Cancel</button><button class="abtn pri" onclick="saveMember(null)">💾 Add</button></div>');
+}
+function editMember(id){
+  const u=userById(id); if(!u||!u.id){ toast('Member not found','a'); return; }
+  if(!can('edit')){ toast('Read-only account','a'); return; }
+  openModal('<div class="mHead"><b>✎ '+esc(u.name)+'</b><button class="x" onclick="closeModal()">✕</button></div>'+
+    '<div class="mBody">'+
+    '<div class="frow"><div class="fld"><label>Name</label><input id="mName" value="'+esc(u.name)+'"></div>'+
+    '<div class="fld"><label>Scrum role</label><select id="mRole">'+['Product Owner','Scrum Master','Backend Developer','Frontend Developer','UI/UX Designer','QA Engineer','Developer'].map(r=>'<option'+(u.role===r?' selected':'')+'>'+r+'</option>').join('')+'</select></div></div>'+
+    '<div class="frow"><div class="fld"><label>Capacity (pts / sprint)</label><input id="mCap" type="number" value="'+(u.capacity||20)+'" min="0" max="99"></div></div>'+
+    '</div><div class="mFoot"><button class="abtn dng" onclick="removeMember(\''+u.id+'\')">🗑 Remove</button><button class="abtn" onclick="closeModal()">Cancel</button><button class="abtn pri" onclick="saveMember(\''+u.id+'\')">💾 Save</button></div>');
+}
+function saveMember(id){
+  if(!can('edit')){ toast('Read-only account','a'); return; }
+  const name=$('#mName').value.trim();
+  if(!name){ toast('Name required','a'); return; }
+  const role=$('#mRole').value, cap=Math.max(0,parseInt($('#mCap').value,10)||20);
+  if(id){
+    const u=DB.team.find(t=>t.id===id);
+    Object.assign(u,{name:name,role:role,capacity:cap});
+    touch('team', name+' updated in team roster');
+  }else{
+    const nid='T'+(Math.max(0,...DB.team.map(t=>+t.id.slice(1)))+1);
+    DB.team.push({id:nid,name:name,role:role,capacity:cap,color:TEAM_COLORS[DB.team.length%TEAM_COLORS.length]});
+    touch('team', name+' joined the team ('+role+')');
+  }
+  save(); closeModal(); renderAll(); toast('Team updated','g');
+}
+function removeMember(id){
+  if(!can('edit')){ toast('Read-only account','a'); return; }
+  const u=DB.team.find(t=>t.id===id); if(!u) return;
+  const assigned=DB.stories.filter(s=>s.assignee===id).length;
+  if(!confirm('Remove '+u.name+' from the team?'+(assigned?(' '+assigned+' assigned item(s) become unassigned.'):''))) return;
+  DB.stories.forEach(s=>{ if(s.assignee===id) s.assignee=''; });
+  DB.team=DB.team.filter(t=>t.id!==id);
+  touch('team', u.name+' removed from the team');
+  save(); closeModal(); renderAll(); toast('Member removed','r');
+}
+function inviteMember(){
+  const email=$('#invEmail').value.trim(), role=$('#invRole').value;
+  if(!SB||!ME||!ME.ws){ toast('Connect Supabase first','a'); return; }
+  SB.rpc('add_member_by_email',{w:ME.ws,member_email:email,member_role:role})
+    .then(({error})=>{ toast(error?('Invite failed: '+error.message):('Invited '+email+' as '+role),error?'r':'g'); });
+}
+
+/* ---------------- about ---------------- */
+
+function vAbout(){
+  head('About','ScrumForge — your personal work board',[
+    {lbl:'Connect Supabase', ic:'☁', fn:'aboutBackend()'}
+  ]);
+  $('#v-about').innerHTML=
+    '<div class="g2">'+
+      '<div class="card"><div class="ct"><span>How it works</span></div>'+
+        '<div style="font-size:13px;line-height:1.7">'+
+        '<b>Backlog</b> — everything you could do, grouped into buckets and prioritised (MoSCoW).<br>'+
+        '<b>Sprints</b> — short timeboxes with a goal; pull only what fits.<br>'+
+        '<b>Board</b> — drag items through To Do → In Progress → Review → Done, with a WIP limit.<br>'+
+        '<b>Reports</b> — burndown and velocity, computed live; export CSV or print a PDF report.<br>'+
+        '<b>Hierarchy</b> — break big items into tasks and subtasks.</div>'+
+        '<h3 class="sec">Definition of Done</h3>'+
+        ['Tested / verified','Actually finished — no hidden loose ends','Reviewed at sprint close']
+          .map(d=>'<div class="chk done"><span class="bx">✓</span>'+d+'</div>').join('')+
+      '</div>'+
+      '<div class="card"><div class="ct"><span>Stack & data</span></div>'+
+        '<table class="tb"><tbody>'+
+        '<tr><td>UI</td><td class="t">Single-file HTML/CSS/JS — no dependencies</td></tr>'+
+        '<tr><td>Charts</td><td class="t">Hand-rolled canvas (burndown, velocity)</td></tr>'+
+        '<tr><td>State</td><td class="t">'+(SB?'Supabase cloud (auth + realtime sync) + local cache':'This browser (localStorage) — add Supabase for sync')+'</td></tr>'+
+        '<tr><td>Deploy</td><td class="t">Any static host (GitHub Pages / Netlify)</td></tr>'+
+        '<tr><td>Export</td><td class="t">CSV dataset + print-to-PDF sprint report</td></tr>'+
+        '<tr><td>Sprints done</td><td class="t">'+doneSprints().length+' · velocity '+avgVelocity()+' avg</td></tr>'+
+        '</tbody></table></div>'+
+    '</div>';
+}
+
+/* =====================================================================
+   CHARTS (canvas, no libraries; colors follow the active theme)
+===================================================================== */
+
+function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function withA(hex,a){
+  const h=String(hex).replace('#','');
+  const r=parseInt(h.slice(0,2),16), g=parseInt(h.slice(2,4),16), b=parseInt(h.slice(4,6),16);
+  return 'rgba('+r+','+g+','+b+','+a+')';
+}
+
+function prepCanvas(cv){
+  const dpr=window.devicePixelRatio||1;
+  const w=cv.clientWidth||600, h=cv.height;
+  cv.width=w*dpr; cv.style.height=h+'px'; cv.height=h*dpr;
+  const x=cv.getContext('2d'); x.scale(dpr,dpr);
+  return {x,w,h};
+}
+
+function burnSeries(n){
+  const sp=sprintByN(n); if(!sp) return [];
+  const total=committedOf(sp), len=sprintLen(sp);
+  const done=sprintStories(n).filter(s=>s.status==='done');
+  const per=done.length?len/(done.length+1):0;
+  const compDay=done.map((s,i)=>Math.max(1,Math.round((i+1)*per)));
+  const today=sp.status==='active'?dayIdx(sp)-1:len-1;
+  const out=[];
+  for(let d=0; d<=Math.max(today,0); d++){
+    let rem=total;
+    compDay.forEach((cd,i)=>{ if(cd<=d) rem-=done[i].points; });
+    out.push(Math.max(0,rem));
+  }
+  return out;
+}
+
+function velSeries(){
+  return doneSprints().map(s=>({label:'S'+s.n, committed:committedOf(s), completed:s.completed}));
+}
+
+function lineChart(cv, series, opts){
+  if(!cv) return;
+  const {x,w,h}=prepCanvas(cv);
+  const o=opts||{};
+  x.clearRect(0,0,w,h);
+  const pad={l:34,r:12,t:12,b:22};
+  const data=series.slice();
+  const idealLen=data.length;
+  if(!data.length){ x.fillStyle=cssVar('--dim'); x.font='11px monospace'; x.fillText('no data yet',pad.l,40); return; }
+  const max=Math.max(1,...data);
+  const X=i=>pad.l+(idealLen<=1?0:(w-pad.l-pad.r)*(i/(idealLen-1)));
+  const Y=v=>h-pad.b-(h-pad.t-pad.b)*(v/max);
+  x.strokeStyle=cssVar('--grid'); x.fillStyle=cssVar('--dim'); x.font='9px monospace';
+  for(let g=0;g<=4;g++){
+    const vy=pad.t+(h-pad.t-pad.b)*g/4;
+    x.beginPath(); x.moveTo(pad.l,vy); x.lineTo(w-pad.r,vy); x.stroke();
+    x.fillText(String(Math.round(max*(1-g/4))), 6, vy+3);
+  }
+  x.beginPath();
+  for(let i=0;i<idealLen;i++){ const px=X(i),py=Y(max*(1-i/Math.max(idealLen-1,1))); i?x.lineTo(px,py):x.moveTo(px,py); }
+  x.setLineDash([4,4]); x.strokeStyle=withA(cssVar('--dim'),.6); x.stroke(); x.setLineDash([]);
+  x.beginPath();
+  data.forEach((v,i)=>{ i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v)); });
+  x.strokeStyle=cssVar('--cy'); x.lineWidth=2; x.stroke();
+  x.lineTo(X(data.length-1),h-pad.b); x.lineTo(X(0),h-pad.b); x.closePath();
+  x.fillStyle=withA(cssVar('--cy'),.08); x.fill();
+  data.forEach((v,i)=>{ x.beginPath(); x.arc(X(i),Y(v),2.4,0,7); x.fillStyle=cssVar('--cy'); x.fill(); });
+  if(o.today!=null && o.today>=0 && o.today<idealLen){
+    x.setLineDash([3,3]); x.strokeStyle=withA(cssVar('--am'),.7);
+    x.beginPath(); x.moveTo(X(o.today),pad.t); x.lineTo(X(o.today),h-pad.b); x.stroke(); x.setLineDash([]);
+    x.fillStyle=cssVar('--am'); x.font='9px monospace'; x.fillText('today', X(o.today)-14, pad.t+8);
+  }
+  x.fillStyle=withA(cssVar('--dim'),.9);
+  for(let i=0;i<idealLen;i+=Math.ceil(idealLen/8)||1) x.fillText(String(i+1), X(i)-3, h-8);
+}
+
+function barChart(cv, groups){
+  if(!cv) return;
+  const {x,w,h}=prepCanvas(cv);
+  x.clearRect(0,0,w,h);
+  const pad={l:34,r:12,t:14,b:22};
+  if(!groups.length){ x.fillStyle=cssVar('--dim'); x.font='11px monospace'; x.fillText('no completed sprints yet',pad.l,40); return; }
+  const max=Math.max(1,...groups.map(g=>Math.max(g.committed,g.completed)));
+  const bw=(w-pad.l-pad.r)/groups.length;
+  x.strokeStyle=cssVar('--grid'); x.fillStyle=cssVar('--dim'); x.font='9px monospace';
+  for(let g=0;g<=4;g++){
+    const vy=pad.t+(h-pad.t-pad.b)*g/4;
+    x.beginPath(); x.moveTo(pad.l,vy); x.lineTo(w-pad.r,vy); x.stroke();
+    x.fillText(String(Math.round(max*(1-g/4))), 6, vy+3);
+  }
+  groups.forEach((g,i)=>{
+    const cx=pad.l+bw*i;
+    const b1w=Math.min(16,bw*0.28);
+    const h1=(h-pad.t-pad.b)*(g.committed/max);
+    const h2=(h-pad.t-pad.b)*(g.completed/max);
+    x.fillStyle=withA(cssVar('--cy'),.4);  x.fillRect(cx+bw*0.22-b1w, h-pad.b-h1, b1w, h1);
+    x.fillStyle=cssVar('--gr');            x.fillRect(cx+bw*0.55,     h-pad.b-h2, b1w, h2);
+    x.fillStyle=withA(cssVar('--dim'),.9);
+    x.fillText(g.label, cx+bw/2-8, h-8);
+  });
+  const avg=groups.reduce((a,g)=>a+g.completed,0)/groups.length;
+  const ay=h-pad.b-(h-pad.t-pad.b)*(avg/max);
+  x.setLineDash([4,4]); x.strokeStyle=withA(cssVar('--gr'),.8);
+  x.beginPath(); x.moveTo(pad.l,ay); x.lineTo(w-pad.r,ay); x.stroke(); x.setLineDash([]);
+  x.fillStyle=withA(cssVar('--gr'),.95); x.fillText('avg '+avg.toFixed(1), w-58, ay-4);
+}
+
+/* =====================================================================
+   ACTIONS
+===================================================================== */
+
+function nextStoryId(){
+  const pre=(PRJ().key||'IT').replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,4)||'IT';
+  const nums=DB.stories.map(s=>{ const m=s.id.match(/(\d+)$/); return m?+m[1]:0; });
+  const n=Math.max(100,...nums)+1;
+  return pre+'-'+n;
+}
+
+function newStoryModal(status,parent){
+  if(!can('edit')){ toast('Read-only account','a'); return; }
+  const sp=activeSprint();
+  openModal(
+    '<div class="mHead"><b>＋ New item</b><button class="x" onclick="closeModal()">✕</button></div>'+
+    '<div class="mBody">'+storyForm({id:nextStoryId(), title:'', type:parent?'task':'story', parent:parent||null, points:3, epic:'E1', assignee:'', status:status||'backlog', priority:'S', sprint:sp?sp.n:null, criteria:''})+'</div>'+
+    '<div class="mFoot"><button class="abtn" onclick="closeModal()">Cancel</button>'+
+    '<button class="abtn pri" onclick="saveStory(null)">💾 Create item</button></div>');
+}
+
+function storyModal(id){
+  const s=storyById(id); if(!s) return;
+  const it=ITEM_TYPES[s.type||'story'];
+  const kids=kidItems(id);
+  const acts=(DB.activity||[]).filter(a=>a.item===id).slice(-8).reverse();
+  const cmts=s.comments||[];
+  openModal(
+    '<div class="mHead"><span class="tag '+(it?it.cls:'c')+' iconE">'+(it?it.icon+' '+it.lbl:'Story')+'</span><span class="tag c">'+esc(s.id)+'</span><b>Item detail</b><button class="x" onclick="closeModal()">✕</button></div>'+
+    '<div class="mBody">'+
+      (kids.length?'<div style="margin-bottom:10px"><span class="tag d">'+kids.length+' sub-item(s):</span> '+kids.map(k=>'<span class="tag b" style="margin-left:4px">'+esc(k.id)+'</span>').join('')+'</div>':'')+
+      storyForm(s)+
+      '<h3 class="sec">Comments · '+cmts.length+'</h3>'+
+      (cmts.length? cmts.map(c=>'<div class="cmt"><span class="ava" style="background:'+esc(c.color||'#64748b')+'">'+esc(c.initials||'?')+'</span><div class="cb">'+esc(c.text)+'<div class="cm">'+esc(c.who)+' · '+esc(c.when)+'</div></div></div>').join('') : '<div style="color:var(--dim);font-size:11.5px">No comments yet.</div>')+
+      (can('edit')?'<div class="authEmail" style="margin-top:8px"><input id="cmtBox" placeholder="Write a comment…" onkeydown="if(event.key===\'Enter\')addComment(\''+esc(s.id)+'\')"><button class="abtn pri" onclick="addComment(\''+esc(s.id)+'\')">Send</button></div>':'')+
+      '<h3 class="sec">Activity</h3>'+
+      (acts.length? acts.map(a=>'<div class="actRow"><span class="tag d">'+esc(a.kind)+'</span><span>'+esc(a.detail)+'</span></div>').join('') : '<div style="color:var(--dim);font-size:11.5px">No recorded activity for this item yet.</div>')+
+    '</div>'+
+    '<div class="mFoot">'+(can('edit')?'<button class="abtn dng" onclick="deleteStory(\''+esc(s.id)+'\')">🗑 Delete</button>':'')+
+    '<button class="abtn" onclick="closeModal()">Cancel</button>'+
+    (can('edit')?'<button class="abtn pri" onclick="saveStory(\''+esc(s.id)+'\')">💾 Save</button>':'')+'</div>');
+}
+function addComment(id){
+  const s=storyById(id); if(!s) return;
+  const box=$('#cmtBox'); const text=((box&&box.value)||'').trim();
+  if(!text){ toast('Write something first','a'); return; }
+  if(!s.comments) s.comments=[];
+  s.comments.push({who:ME.name,initials:ME.initials,color:ME.color,text:text,when:new Date().toLocaleString()});
+  touch('commented', ME.name+' commented on '+id);
+  save(); storyModal(id);
+  toast('Comment added','g');
+}
+
+function storyForm(s){
+  return '<div class="frow"><div class="fld"><label>Type</label><select id="fType">'+Object.keys(ITEM_TYPES).map(t=>'<option value="'+t+'"'+((s.type||'story')===t?' selected':'')+'>'+ITEM_TYPES[t].icon+' '+ITEM_TYPES[t].lbl+'</option>').join('')+'</select></div>'+
+    '<div class="fld"><label>Parent (for tasks / bugs)</label><select id="fParent"><option value="">— none —</option>'+DB.stories.filter(x=>(!x.type||x.type==='story'||x.type==='epic')&&x.id!==s.id).map(x=>'<option value="'+esc(x.id)+'"'+(s.parent===x.id?' selected':'')+'>'+esc(x.id+' · '+x.title.slice(0,42))+'</option>').join('')+'</select></div></div>'+
+    '<div class="frow one"><div class="fld"><label>Title</label><input id="fTitle" value="'+esc(s.title)+'" placeholder="What needs doing?"></div></div>'+
+    '<div class="frow">'+
+      '<div class="fld"><label>Bucket</label><select id="fEpic">'+EPICS.map(e=>'<option value="'+e.id+'"'+(s.epic===e.id?' selected':'')+'>'+esc(e.name)+'</option>').join('')+'</select></div>'+
+      '<div class="fld"><label>Story points</label><select id="fPts">'+PTS.map(p=>'<option'+(s.points===p?' selected':'')+'>'+p+'</option>').join('')+'</select></div>'+
+    '</div>'+
+    '<div class="frow">'+
+      '<div class="fld"><label>Assignee</label><select id="fAsg"><option value=""'+(!s.assignee?' selected':'')+'>Unassigned</option>'+teamList().map(u=>'<option value="'+u.id+'"'+(s.assignee===u.id?' selected':'')+'>'+esc(u.name)+' — '+esc(u.role)+'</option>').join('')+'</select></div>'+
+      '<div class="fld"><label>Priority (MoSCoW)</label><select id="fPri">'+Object.keys(MOSCOW).map(k=>'<option value="'+k+'"'+(s.priority===k?' selected':'')+'>'+k+' · '+MOSCOW[k]+'</option>').join('')+'</select></div>'+
+    '</div>'+
+    '<div class="frow one"><div class="fld"><label>Labels</label><div style="display:flex;flex-wrap:wrap;gap:6px">'+Object.keys(LABELS).map(k=>'<label class="chipchk"><input type="checkbox" id="lbl_'+k+'"'+((s.labels||[]).includes(k)?' checked':'')+'> '+LABELS[k].name+'</label>').join('')+'</div></div></div>'+
+    '<div class="frow">'+
+      '<div class="fld"><label>Status</label><select id="fSt">'+COLS.map(c=>'<option value="'+c.id+'"'+(s.status===c.id?' selected':'')+'>'+c.nm+'</option>').join('')+'</select></div>'+
+      '<div class="fld"><label>Sprint</label><select id="fSp"><option value="">(backlog — unscheduled)</option>'+DB.sprints.map(x=>'<option value="'+x.n+'"'+(s.sprint===x.n?' selected':'')+'>S'+x.n+' · '+esc(x.name)+'</option>').join('')+'</select></div>'+
+    '</div>'+
+    '<div class="frow one"><div class="fld"><label>Notes / acceptance criteria (one per line)</label><textarea id="fCrit" placeholder="Definition of done…">'+esc(s.criteria||'')+'</textarea></div></div>';
+}
+
+function saveStory(id){
+  if(!can('edit')){ toast('Read-only account','a'); return; }
+  const title=$('#fTitle').value.trim();
+  if(!title){ toast('Title is required','a'); return; }
+  const data={
+    title:title,
+    type:$('#fType')?$('#fType').value:'story',
+    parent:($('#fParent')&&$('#fParent').value)?$('#fParent').value:null,
+    epic:$('#fEpic').value,
+    points:parseInt($('#fPts').value,10)||3,
+    assignee:$('#fAsg').value||'',
+    priority:$('#fPri').value,
+    labels:Object.keys(LABELS).filter(k=>{const b=$('#lbl_'+k);return b&&b.checked;}),
+    status:$('#fSt').value,
+    sprint:$('#fSp').value?parseInt($('#fSp').value,10):null,
+    criteria:$('#fCrit').value.trim()
+  };
+  if(id){
+    Object.assign(storyById(id),data);
+    touch('updated', id+' updated');
+    toast(id+' updated','g');
+  }else{
+    const nid=nextStoryId();
+    DB.stories.push(Object.assign({id:nid},data));
+    touch('created', nid+' created');
+    toast('Item created','g');
+  }
+  save(); closeModal(); renderAll();
+}
+
+function deleteStory(id){
+  if(!can('edit')){ toast('Read-only account','a'); return; }
+  const s=storyById(id); if(!s) return;
+  if(!confirm('Delete '+id+' — "'+s.title+'"? Sub-items are deleted too.')) return;
+  const kill=new Set([id].concat(descIds(id)));
+  DB.stories=DB.stories.filter(x=>!kill.has(x.id));
+  touch('deleted', id+' deleted');
+  save(); closeModal(); renderAll(); toast(id+' deleted','r');
+}
+
+function setStatus(id,status){
+  if(!can('edit')){ toast('Read-only account','a'); return; }
+  const s=storyById(id); if(!s) return;
+  if(s.status===status) return;
+  const from=colName(s.status);
+  s.status=status;
+  touch('moved', id+': '+from+' → '+colName(status));
+  save(); renderAll();
+  toast(id+' → '+colName(status), status==='done'?'g':'');
+}
+
+function moveStory(id,dir){
+  const s=storyById(id); if(!s) return;
+  const epic=DB.stories.filter(x=>x.epic===s.epic);
+  const i=epic.findIndex(x=>x.id===id);
+  const j=dir==='up'?i-1:i+1;
+  if(j<0||j>=epic.length) return;
+  const gi=DB.stories.indexOf(epic[i]), gj=DB.stories.indexOf(epic[j]);
+  const tmp=DB.stories[gi]; DB.stories[gi]=DB.stories[gj]; DB.stories[gj]=tmp;
+  save(); renderAll();
+}
+
+function newSprintModal(){
+  if(!can('edit')){ toast('Read-only account','a'); return; }
+  openModal(
+    '<div class="mHead"><b>＋ New sprint</b><button class="x" onclick="closeModal()">✕</button></div>'+
+    '<div class="mBody">'+sprintForm({name:'',goal:'',start:DB.pinDay||todayISO(),end:''})+'</div>'+
+    '<div class="mFoot"><button class="abtn" onclick="closeModal()">Cancel</button>'+
+    '<button class="abtn pri" onclick="saveSprint(null)">💾 Create sprint</button></div>');
+}
+
+function editSprintModal(n){
+  const sp=sprintByN(n); if(!sp) return;
+  openModal(
+    '<div class="mHead"><b>✎ '+esc(sp.name)+'</b><button class="x" onclick="closeModal()">✕</button></div>'+
+    '<div class="mBody">'+sprintForm(sp)+'</div>'+
+    '<div class="mFoot"><button class="abtn" onclick="closeModal()">Cancel</button>'+
+    '<button class="abtn pri" onclick="saveSprint('+n+')">💾 Save</button></div>');
+}
+
+function sprintForm(sp){
+  return '<div class="frow one"><div class="fld"><label>Sprint name</label><input id="sName" value="'+esc(sp.name||'')+'" placeholder="Sprint 1 · Kickoff"></div></div>'+
+    '<div class="frow one"><div class="fld"><label>Sprint goal (required to start)</label><input id="sGoal" value="'+esc(sp.goal||'')+'" placeholder="What should be true at the end?"></div></div>'+
+    '<div class="frow">'+
+      '<div class="fld"><label>Start date</label><input id="sStart" type="date" value="'+esc(sp.start||'')+'" oninput="sprintAutoEnd()"></div>'+
+      '<div class="fld"><label>Duration</label><select id="sDur" onchange="sprintAutoEnd()"><option value="7">1 week</option><option value="14" selected>2 weeks</option><option value="21">3 weeks</option><option value="28">4 weeks</option></select></div>'+
+    '</div>'+
+    '<div class="frow one"><div class="fld"><label>End date (auto-set from duration — adjust if needed)</label><input id="sEnd" type="date" value="'+esc(sp.end||'')+'"></div></div>';
+}
+function sprintAutoEnd(){
+  const s=$('#sStart').value, w=parseInt(($('#sDur')||{}).value||'14',10);
+  if(s&&w){ const e=new Date(new Date(s+'T00:00:00Z').getTime()+(w-1)*DAY); $('#sEnd').value=e.toISOString().slice(0,10); }
+}
+
+function saveSprint(n){
+  const name=$('#sName').value.trim(), goal=$('#sGoal').value.trim();
+  const start=$('#sStart').value, end=$('#sEnd').value;
+  if(!name||!start||!end){ toast('Name, start and end are required','a'); return; }
+  if(d2t(end)<d2t(start)){ toast('End date must be after start','a'); return; }
+  if(n){
+    Object.assign(sprintByN(n),{name,goal,start,end});
+    toast('Sprint updated','g');
+  }else{
+    const next=Math.max(0,...DB.sprints.map(s=>s.n))+1;
+    DB.sprints.push({n:next,name,goal,start,end,status:'planned',committed:0,completed:0});
+    toast('Sprint created ('+Math.round((d2t(end)-d2t(start)+1)/7*10)/10+' weeks) — plan items into it','g');
+  }
+  save(); closeModal(); renderAll();
+}
+
+function startSprint(n){
+  if(!can('edit')){ toast('Read-only account','a'); return; }
+  const sp=sprintByN(n); if(!sp) return;
+  if(activeSprint()){ toast('Close the active sprint first','a'); return; }
+  if(!sp.goal){ toast('A sprint goal is required to start','a'); return; }
+  const pts=sprintPoints(n);
+  if(!pts){ toast('Plan at least one item into this sprint','a'); return; }
+  sp.status='active';
+  sp.committed=pts;
+  touch('sprint', sp.name+' started ('+pts+' pts)');
+  save(); renderAll();
+  toast(sp.name+' started — '+pts+' pts committed','g');
+}
+
+function closeSprint(n){
+  if(!can('edit')){ toast('Read-only account','a'); return; }
+  const sp=sprintByN(n); if(!sp) return;
+  const spilled=sprintStories(n).filter(s=>s.status!=='done');
+  const spillPts=spilled.reduce((a,s)=>a+s.points,0);
+  if(!confirm('Close '+sp.name+'?\n\nCompleted: '+donePoints(n)+' pts\nSpilled back to backlog: '+spilled.length+' items ('+spillPts+' pts)\n\nSpilled items return to the backlog for re-planning.')) return;
+  spilled.forEach(s=>{ s.sprint=null; });
+  sp.status='done';
+  sp.completed=donePoints(n);
+  touch('sprint', sp.name+' closed · '+sp.completed+' pts delivered');
+  save(); renderAll();
+  toast(sp.name+' closed · '+sp.completed+' pts delivered'+(spillPts?' · '+spillPts+' pts spilled':''),'g');
+}
+
+function deleteSprint(n){
+  if(!can('edit')){ toast('Read-only account','a'); return; }
+  const sp=sprintByN(n); if(!sp) return;
+  if(sp.status==='active'){ toast('Close the sprint before deleting','a'); return; }
+  if(!confirm('Delete '+sp.name+'? Its items return to the backlog.')) return;
+  sprintStories(n).forEach(s=>{ s.sprint=null; });
+  DB.sprints=DB.sprints.filter(s=>s.n!==n);
+  save(); renderAll(); toast('Sprint deleted','r');
+}
+
+/* =====================================================================
+   EXPORT — CSV dataset & printable sprint report
+===================================================================== */
+
+function csvCell(v){
+  v=String(v==null?'':v);
+  if(/[",\n\r]/.test(v)) v='"'+v.replace(/"/g,'""')+'"';
+  return v;
+}
+
+function exportCSV(){
+  const L=[];
+  L.push('SPRINT SUMMARY');
+  L.push(['Sprint','Name','Status','Start','End','Committed','Completed','Spilled','Success %'].map(csvCell).join(','));
+  DB.sprints.forEach(sp=>{
+    const c=committedOf(sp), d=sp.status==='done'?sp.completed:donePoints(sp.n);
+    L.push([sp.n,sp.name,sp.status,sp.start,sp.end,c,d,c-d,(c?Math.round(d/c*100):0)+'%'].map(csvCell).join(','));
+  });
+  L.push('');
+  L.push('ITEMS');
+  L.push(['ID','Title','Bucket','Points','Priority','Assignee','Status','Sprint'].map(csvCell).join(','));
+  DB.stories.forEach(s=>{
+    L.push([s.id,s.title,epicById(s.epic).name,s.points,s.priority,userById(s.assignee).name,colName(s.status),s.sprint?('S'+s.sprint):''].map(csvCell).join(','));
+  });
+  const blob=new Blob(['\uFEFF'+L.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='scrumforge-export-'+(DB.pinDay||todayISO())+'.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast('CSV exported','g');
+}
+
+/* Renders a chart into an offscreen canvas and returns a PNG data-URL
+   (images print reliably; raw canvases often do not). */
+function chartImage(w,h,drawFn){
+  const host=document.createElement('div');
+  host.style.cssText='position:fixed;left:-9999px;top:0;width:'+w+'px;';
+  const cv=document.createElement('canvas');
+  cv.height=h; cv.style.width=w+'px';
+  host.appendChild(cv); document.body.appendChild(host);
+  const x=cv.getContext('2d');
+  x.fillStyle='#ffffff'; x.fillRect(0,0,w,h);
+  drawFn(cv);
+  const url=cv.toDataURL('image/png');
+  host.remove();
+  return url;
+}
+
+function buildReportHTML(n){
+  const sp=sprintByN(n)||activeSprint()||doneSprints().slice(-1)[0]||DB.sprints[0];
+  if(!sp) return '<h1>Sprint Report</h1><p class="mut">No sprints yet.</p>';
+  const ds=doneSprints();
+  const burnImg=chartImage(860,300,cv=>lineChart(cv,burnSeries(sp.n),{today: sp.status==='active'?dayIdx(sp)-1:null}));
+  const velImg=chartImage(860,300,cv=>barChart(cv,velSeries()));
+  const stories=sprintStories(sp.n);
+  const c=committedOf(sp), d=sp.status==='done'?sp.completed:donePoints(sp.n);
+  const DoD=['Tested / verified','Actually finished — no hidden loose ends','Reviewed at sprint close'];
+
+  return '<div class="rp-head"><div class="rp-brand">⚒ SCRUMFORGE</div><div><h1>Sprint Report</h1>'+
+    '<div class="rp-sub">'+esc(PRJ().name)+' · generated '+fmtD(DB.pinDay||todayISO())+'</div></div></div>'+
+
+    '<div class="rp-card"><h2>1 · Summary</h2><table class="rp-kv">'+
+    '<tr><th>Project</th><td>'+esc(PRJ().name)+(PRJ().desc?' — '+esc(PRJ().desc):'')+'</td></tr>'+
+    '<tr><th>Delivery record</th><td>'+ds.length+' sprints completed · average velocity '+avgVelocity()+' pts · '+ds.reduce((a,s)=>a+s.completed,0)+' points delivered · '+DB.stories.length+' items managed</td></tr>'+
+    '</table></div>'+
+
+    '<div class="rp-card"><h2>2 · Sprint summary</h2><table class="rp-tb">'+
+    '<tr><th>Sprint</th><th>Goal</th><th>Dates</th><th>Status</th><th>Committed</th><th>Completed</th><th>Spill</th><th>Success</th></tr>'+
+    DB.sprints.map(s=>{const cc=committedOf(s), dd=s.status==='done'?s.completed:donePoints(s.n);
+      return '<tr><td>S'+s.n+'</td><td>'+esc(s.goal)+'</td><td>'+fmtD(s.start)+' → '+fmtD(s.end)+'</td><td>'+s.status+'</td><td>'+cc+'</td><td>'+dd+'</td><td>'+(cc-dd)+'</td><td>'+(cc?Math.round(dd/cc*100):0)+'%</td></tr>';}).join('')+
+    '</table></div>'+
+
+    '<div class="rp-card"><h2>3 · Sprint in focus — '+esc(sp.name)+'</h2>'+
+    '<p class="rp-goal"><b>Sprint goal:</b> '+esc(sp.goal)+'</p>'+
+    '<p>'+fmtD(sp.start)+' → '+fmtD(sp.end)+' · status: '+sp.status+' · commitment: '+d+' / '+c+' pts ('+(c?Math.round(d/c*100):0)+'%)</p>'+
+    (stories.length
+      ? '<table class="rp-tb"><tr><th>ID</th><th>Item</th><th>Bucket</th><th>Pts</th><th>Status</th></tr>'+
+        stories.map(s=>'<tr><td>'+esc(s.id)+'</td><td>'+esc(s.title)+'</td><td>'+esc(epicById(s.epic).name)+'</td><td>'+s.points+'</td><td>'+colName(s.status)+'</td></tr>').join('')+'</table>'
+      : '<p class="mut">No items planned in this sprint.</p>')+
+    '<h3>Sprint burndown (ideal vs remaining)</h3><img class="rp-img" src="'+burnImg+'" alt="Sprint burndown chart">'+
+    '</div>'+
+
+    '<div class="rp-card"><h2>4 · Velocity across sprints</h2><img class="rp-img" src="'+velImg+'" alt="Velocity chart"></div>'+
+
+    '<div class="rp-card"><h2>5 · Definition of Done</h2><ul class="rp-ul">'+DoD.map(x=>'<li>'+x+'</li>').join('')+'</ul></div>'+
+
+    '<div class="rp-foot">Generated by ScrumForge · single-file work board.</div>';
+}
+
+function printReport(){
+  const sp=activeSprint()||doneSprints().slice(-1)[0]||DB.sprints[0];
+  if(!sp){ toast('No sprints to report on yet','a'); return; }
+  const sel=$('#repSprint');
+  const n=sel?+sel.value:sp.n;
+  $('#printRoot').innerHTML=buildReportHTML(n);
+  toast('Opening print dialog — choose Save as PDF','g');
+  setTimeout(()=>window.print(),150);
+}
+window.addEventListener('afterprint',()=>{ const r=$('#printRoot'); if(r) r.innerHTML=''; });
+
+/* =====================================================================
+   BOOT
+===================================================================== */
+
+function init(){
+  applyTheme(localStorage.getItem('sf.theme')||'light');
+  loadSupabase();
+  try{ const m=localStorage.getItem('sf.me.v1'); if(m){ ME=JSON.parse(m); } }catch(e){}
+  if(ME) bootAsUser();   /* cached/local user boots immediately; cloudAdopt re-boots if a cloud session exists */
+  renderAuthScreen();
+  buildNav();
+  $('#btnTheme').onclick=toggleTheme;
+  initSidebarResize();
+  $('#modalRoot').addEventListener('click',e=>{ if(e.target.id==='modalRoot') closeModal(); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+
+  const steps=[['loading…',30],['starting board…',70],['ready',100]];
+  const log=$('#ldLog'), bar=$('#ldBar');
+  steps.forEach((s,i)=>setTimeout(()=>{
+    log.innerHTML+='<div class="ok">✓ '+s[0]+'</div>';
+    bar.style.width=s[1]+'%';
+    if(i===steps.length-1) setTimeout(()=>{ if(!ME) renderAuthScreen(); $('#loader').classList.add('done'); },350);
+  },120+i*160));
+
+  window.addEventListener('resize',()=>{ if(ME&&(VIEW==='dash'||VIEW==='reports')) renderAll(); });
+}
+
+function initSidebarResize(){
+  const h=$('#sideResize'); if(!h) return;
+  let startX=0, startW=0, dragging=false;
+  function down(e){ dragging=true; startX=(e.touches?e.touches[0].clientX:e.clientX); startW=$('#side').offsetWidth; h.classList.add('drag'); e.preventDefault(); }
+  function move(e){
+    if(!dragging) return;
+    const x=(e.touches?e.touches[0].clientX:e.clientX);
+    let w=Math.min(400,Math.max(180,startW+(x-startX)));
+    $('#side').style.width=w+'px';
+    $('#main').style.marginLeft=w+'px';
+  }
+  function up(){
+    if(!dragging) return;
+    dragging=false; h.classList.remove('drag');
+    try{ localStorage.setItem('sf.sideW',$('#side').offsetWidth); }catch(e){}
+    if(ME&&(VIEW==='dash'||VIEW==='reports')) renderAll();
+  }
+  h.addEventListener('mousedown',down); h.addEventListener('touchstart',down,{passive:false});
+  window.addEventListener('mousemove',move); window.addEventListener('touchmove',move,{passive:false});
+  window.addEventListener('mouseup',up); window.addEventListener('touchend',up);
+  try{
+    const w=parseInt(localStorage.getItem('sf.sideW')||'0',10);
+    if(w>=180&&w<=400){ $('#side').style.width=w+'px'; $('#main').style.marginLeft=w+'px'; }
+  }catch(e){}
+}
+
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
